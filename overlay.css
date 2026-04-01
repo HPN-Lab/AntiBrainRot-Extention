@@ -1,0 +1,65 @@
+html[vmu-blocked='true'],
+html[vmu-blocked='true'] body {
+    overflow: hidden !important;
+}
+
+#vmu-doom-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    box-sizing: border-box;
+    z-index: 2147483647 !important;
+    background: rgba(3, 7, 18, 0.82);
+    backdrop-filter: blur(15px);
+    pointer-events: auto !important;
+    user-select: none;
+}
+
+#vmu-doom-overlay .vmu-doom-panel {
+    width: min(100%, 560px);
+    border: 1px solid rgba(251, 191, 36, 0.28);
+    border-radius: 28px;
+    padding: 32px 28px;
+    background: linear-gradient(180deg, rgba(17, 24, 39, 0.92), rgba(2, 6, 23, 0.98));
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+    text-align: center;
+    color: #f8fafc;
+}
+
+#vmu-doom-overlay .vmu-doom-eyebrow {
+    margin: 0 0 12px;
+    color: #fbbf24;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+}
+
+#vmu-doom-overlay .vmu-doom-title {
+    margin: 0;
+    color: #ffffff;
+    font-size: clamp(30px, 5vw, 44px);
+    font-weight: 900;
+    line-height: 1.05;
+    letter-spacing: -0.05em;
+}
+
+#vmu-doom-overlay .vmu-doom-message {
+    margin: 18px 0 0;
+    color: rgba(241, 245, 249, 0.92);
+    font-size: clamp(16px, 2vw, 18px);
+    line-height: 1.7;
+}
+
+#vmu-doom-overlay .vmu-doom-submessage {
+    margin: 12px 0 0;
+    color: #fbbf24;
+    font-size: 18px;
+    font-weight: 700;
+}

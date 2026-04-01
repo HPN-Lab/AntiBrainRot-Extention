@@ -1,0 +1,11 @@
+{
+  "dependencies": {
+    "@tailwindcss/cli": "^4.2.0",
+    "autoprefixer": "^10.4.27",
+    "postcss": "^8.5.8",
+    "tailwindcss": "^4.2.1"
+  },
+  "scripts": {
+    "build": "tailwindcss -i ./assets/css/styles.css -o ./dist/styles.css --watch"
+  }
+}

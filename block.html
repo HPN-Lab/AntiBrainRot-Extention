@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stay Focused - Đã chặn</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'block-yellow': '#FBBF24',
+                    },
+                },
+            },
+        };
+    </script>
+    <style>
+        .block-bg-blur {
+            filter: blur(5px);
+        }
+
+        .block-bg-opacity {
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen overflow-hidden bg-black font-sans antialiased">
+    <div
+        class="absolute inset-0 z-0 scale-110 bg-cover bg-center block-bg-blur block-bg-opacity"
+        style="background-image: url('images/block-bg.png');"
+    ></div>
+
+    <div class="absolute inset-0 z-10 bg-black/30"></div>
+
+    <main class="relative z-20 flex h-full w-full items-center justify-center px-4 text-center text-block-yellow">
+        <div class="flex flex-col items-center justify-center gap-4">
+            <h1 class="text-6xl font-extrabold tracking-tight md:text-8xl">
+                Stay Focused!
+            </h1>
+            <p class="text-3xl font-semibold md:text-5xl">
+                Time Left: <span id="time-remaining">24:53</span>
+            </p>
+        </div>
+    </main>
+</body>
+</html>

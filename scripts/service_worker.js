@@ -42,18 +42,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return false;
     }
 
-    chrome.storage.local.get([BLOCKLIST_STORAGE_KEY], (data) => {
-        if (chrome.runtime.lastError) {
-            console.error('[SW:LOAD_BLOCKLIST]', chrome.runtime.lastError);
-            sendResponse({ isBlocked: false });
-            return;
-        }
+    // Keep the block UI assets in place, but disable runtime website blocking for now.
+    sendResponse({ isBlocked: false });
 
-        const blockedSites = Array.isArray(data[BLOCKLIST_STORAGE_KEY]) ? data[BLOCKLIST_STORAGE_KEY] : DEFAULT_BLACKLIST;
-        sendResponse({
-            isBlocked: isBlockedUrl(message.url, blockedSites),
-        });
-    });
-
-    return true;
+    return false;
 });

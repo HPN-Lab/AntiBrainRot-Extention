@@ -2,6 +2,7 @@
 /* global chrome */
 
 const STORAGE_KEY = 'inAppBlockingSettings';
+const EXTENSION_ACTIVE_KEY = 'isExtensionActive';
 const STYLE_ID = 'antidoom-yt-attribute-style';
 const AUTH_ATTRIBUTE = 'sf-yt-authorized';
 const DEFAULT_YOUTUBE_SETTINGS = {
@@ -161,6 +162,7 @@ let theaterModeListenerAttached = false;
 let theaterModeHandler = null;
 let shortsPopstateHandler = null;
 let shortsNavigateHandler = null;
+let isExtensionActive = true;
 
 function mergeYouTubeSettings(storedSettings = {}) {
     return { ...DEFAULT_YOUTUBE_SETTINGS, ...(storedSettings.youtube || {}) };
@@ -193,6 +195,15 @@ function ensureStyleElement() {
     }
 
     return styleEl;
+}
+
+function clearSettingsHtmlAttributes() {
+    Object.values(SETTING_ATTRIBUTE_MAP).forEach((attributeName) => {
+        document.documentElement.removeAttribute(attributeName);
+    });
+
+    document.documentElement.removeAttribute('data-vmu-hide-shorts');
+    document.documentElement.removeAttribute(AUTH_ATTRIBUTE);
 }
 
 function setBooleanHtmlAttribute(attributeName, enabled) {
@@ -361,6 +372,28 @@ function resetTheaterModeObserver() {
     }
 }
 
+function disableYouTubeFeatures() {
+    cachedSettings = { ...DEFAULT_YOUTUBE_SETTINGS };
+    clearSettingsHtmlAttributes();
+    hideShortsNavigationItems(false);
+    resetAutoplayHunter();
+    resetTheaterModeObserver();
+    enforceShortsWipeout(false);
+    toggleAdSkipper(false);
+
+    if (runtimeObserver) {
+        runtimeObserver.disconnect();
+        runtimeObserver = null;
+    }
+
+    observedContainer = null;
+
+    const styleEl = document.getElementById(STYLE_ID);
+    if (styleEl) {
+        styleEl.remove();
+    }
+}
+
 function enforceShortsWipeout(isActive) {
     const updateShortsAttribute = (enabled) => {
         const nextValue = enabled ? 'true' : 'false';
@@ -510,6 +543,10 @@ function toggleAdSkipper(isActive) {
 }
 
 function applyRuntimeDomEffects() {
+    if (!isExtensionActive) {
+        return;
+    }
+
     syncAuthorizedAttribute();
     hideShortsNavigationItems(cachedSettings.hideShorts);
 }
@@ -520,6 +557,10 @@ const scheduleRuntimeDomEffects = debounce(() => {
 }, 200);
 
 function observeRuntimeContainer() {
+    if (!isExtensionActive) {
+        return;
+    }
+
     const nextContainer = getObserverTarget();
 
     if (!nextContainer || nextContainer === observedContainer) {
@@ -551,6 +592,11 @@ function observeRuntimeContainer() {
 }
 
 function applySettings(settings) {
+    if (!isExtensionActive) {
+        disableYouTubeFeatures();
+        return;
+    }
+
     cachedSettings = settings;
     syncSettingsToHtmlAttributes(settings);
     initYouTubeFeatures(settings);
@@ -559,12 +605,22 @@ function applySettings(settings) {
 }
 
 function loadAndApplySettings() {
-    chrome.storage.sync.get([STORAGE_KEY], (data) => {
+    chrome.storage.sync.get([STORAGE_KEY, EXTENSION_ACTIVE_KEY], (data) => {
+        isExtensionActive = data?.[EXTENSION_ACTIVE_KEY] !== false;
+        if (!isExtensionActive) {
+            disableYouTubeFeatures();
+            return;
+        }
+
         applySettings(mergeYouTubeSettings(data[STORAGE_KEY]));
     });
 }
 
 function handleNavigationEvent() {
+    if (!isExtensionActive) {
+        return;
+    }
+
     if (lastNavigationHref === location.href) {
         observeRuntimeContainer();
         initYouTubeFeatures(cachedSettings);
@@ -580,7 +636,7 @@ function handleNavigationEvent() {
 }
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
-    if (areaName === 'sync' && changes[STORAGE_KEY]) {
+    if (areaName === 'sync' && (changes[STORAGE_KEY] || changes[EXTENSION_ACTIVE_KEY])) {
         loadAndApplySettings();
     }
 });

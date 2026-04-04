@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
 
-  "name": "VMU - AntiDoom",
+  "name": "VMU - AntiDistract",
   "description": "",
   "version": "2.0",
 
@@ -72,9 +72,7 @@
 
   ],
   "icons": {
-    "16": "images/icon16.png",
-    "48": "images/icon48.png",
-    "32": "images/icon32.png",
+
     "64": "images/icon64.png",
     "128": "images/icon128.png",
     "256": "images/icon256.png",
@@ -90,14 +88,8 @@
 
   "action": {
     "default_icon": {
-      "16": "images/icon16.png",
-      "48": "images/default.png",
-      "32": "images/icon32.png",
-      "64": "images/icon64.png",
-      "128": "images/icon128.png",
-      "256": "images/icon256.png",
-      "512": "images/icon512.png",
-      "1024": "images/icon1024.png"
+      "128": "images/icon128.png"
+      
     },
     "default_popup": "popup.html"
 

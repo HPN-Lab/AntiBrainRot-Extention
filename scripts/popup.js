@@ -2,6 +2,7 @@
 
 const STORAGE_KEY = 'inAppBlockingSettings';
 const OPENING_TIMER_STATE_KEY = 'openingTimerState';
+const SETTINGS_STORAGE_KEY = 'dashboardSettings';
 const DEFAULT_OPENING_TIMER_MESSAGE = 'Chậm lại một chút trước khi mở nội dung gây xao nhãng.';
 const DEFAULT_TIME_REMAINING_SECONDS = 25 * 60;
 
@@ -21,13 +22,74 @@ const siteFavicon = document.getElementById('site-favicon');
 const timeRemainingLabel = document.getElementById('time-remaining-label');
 const timeRemainingValue = document.getElementById('time-remaining-value');
 const disabledMessage = document.getElementById('disabled-message');
-const globalActiveToggle = document.getElementById('global-active-toggle');
+let globalActiveToggleShell = document.getElementById('popup-active-toggle-shell');
+let globalActiveToggle = document.getElementById('global-active-toggle');
+let globalActiveToggleLabel = document.getElementById('global-active-toggle-label');
 const expandBtn = document.getElementById('expand-btn');
+const popupActiveToggleHost = globalActiveToggleShell?.parentElement || null;
+const popupActiveToggleMarkup = globalActiveToggleShell?.outerHTML || '';
+let popupActiveTogglePlaceholder = document.createComment('popup-active-toggle-shell');
 
 let popupTimerInterval = null;
 let uiCountdownInterval = null;
 let lastRenderedHost = '';
 let latestPopupState = null;
+
+function hydratePopupToggleRefs() {
+    globalActiveToggleShell = document.getElementById('popup-active-toggle-shell');
+    globalActiveToggle = document.getElementById('global-active-toggle');
+    globalActiveToggleLabel = document.getElementById('global-active-toggle-label');
+}
+
+function bindPopupActiveToggle() {
+    if (!globalActiveToggle || globalActiveToggle.dataset.bound === 'true') {
+        return;
+    }
+
+    globalActiveToggle.dataset.bound = 'true';
+    globalActiveToggle.addEventListener('click', async () => {
+        const nextValue = globalActiveToggle.getAttribute('aria-pressed') !== 'true';
+
+        try {
+            await setSyncStorage({ isExtensionActive: nextValue });
+            await refreshPopupView();
+        } catch (error) {
+            console.error('[POPUP:TOGGLE_ACTIVE]', error);
+        }
+    });
+}
+
+function renderPopupActiveToggleVisibility(shouldHide) {
+    if (shouldHide) {
+        if (globalActiveToggleShell?.parentNode) {
+            globalActiveToggleShell.replaceWith(popupActiveTogglePlaceholder);
+        }
+        hydratePopupToggleRefs();
+        return;
+    }
+
+    if (!globalActiveToggleShell && popupActiveToggleHost && popupActiveToggleMarkup) {
+        const template = document.createElement('template');
+        template.innerHTML = popupActiveToggleMarkup.trim();
+        const nextShell = template.content.firstElementChild;
+        if (nextShell) {
+            if (popupActiveTogglePlaceholder.parentNode) {
+                popupActiveTogglePlaceholder.replaceWith(nextShell);
+            } else {
+                popupActiveToggleHost.appendChild(nextShell);
+            }
+        }
+    }
+
+    hydratePopupToggleRefs();
+    bindPopupActiveToggle();
+}
+
+function resolveDashboardSettings(syncData = {}, localData = {}) {
+    const localSettings = localData?.[SETTINGS_STORAGE_KEY];
+    const syncSettings = syncData?.[SETTINGS_STORAGE_KEY];
+    return localSettings?.disableSync ? (localSettings || {}) : (syncSettings || localSettings || {});
+}
 
 function getSyncStorage(keys) {
     return new Promise((resolve, reject) => {
@@ -172,6 +234,10 @@ function updateToggleVisual(isActive) {
 
     globalActiveToggle.classList.toggle('is-on', isActive);
     globalActiveToggle.setAttribute('aria-pressed', String(isActive));
+
+    if (globalActiveToggleLabel) {
+        globalActiveToggleLabel.textContent = isActive ? 'Active' : 'Off';
+    }
 }
 
 function updateSiteFavicon(currentTabInfo) {
@@ -448,6 +514,11 @@ async function startOpeningTimer(timerState) {
 }
 
 async function checkIfBlockedByOpeningTimer(youtubeSettings, currentUrl) {
+    if (latestPopupState && latestPopupState.isExtensionActive === false) {
+        showScreen('mainScreen');
+        return false;
+    }
+
     const timerSeconds = getOpeningTimerDurationInSeconds(youtubeSettings);
     const isYouTubeTab = /^https?:\/\/(www\.)?youtube\.com\//i.test(currentUrl || '');
 
@@ -482,14 +553,20 @@ async function checkIfBlockedByOpeningTimer(youtubeSettings, currentUrl) {
 async function refreshPopupView() {
     try {
         const currentTabInfo = await queryActiveTab();
-        const storageData = await getSyncStorage([
-            STORAGE_KEY,
-            'isExtensionActive',
-            'blockedSites',
-            'whitelistedSites',
-            'siteTimers',
+        const [storageData, localSettingsData] = await Promise.all([
+            getSyncStorage([
+                STORAGE_KEY,
+                'isExtensionActive',
+                'blockedSites',
+                'whitelistedSites',
+                'siteTimers',
+                SETTINGS_STORAGE_KEY,
+            ]),
+            getLocalStorage([SETTINGS_STORAGE_KEY]),
         ]);
 
+        const dashboardSettings = resolveDashboardSettings(storageData, localSettingsData);
+        renderPopupActiveToggleVisibility(Boolean(dashboardSettings.hideSwitch));
         const popupState = buildPopupState(storageData, currentTabInfo);
         updateUIState(popupState, currentTabInfo);
     } catch (error) {
@@ -500,13 +577,27 @@ async function refreshPopupView() {
 async function initPopup() {
     try {
         const currentTabInfo = await queryActiveTab();
-        const syncData = await getSyncStorage([
-            STORAGE_KEY,
-            'isExtensionActive',
-            'blockedSites',
-            'whitelistedSites',
-            'siteTimers',
+        const [syncData, localSettingsData] = await Promise.all([
+            getSyncStorage([
+                STORAGE_KEY,
+                'isExtensionActive',
+                'blockedSites',
+                'whitelistedSites',
+                'siteTimers',
+                SETTINGS_STORAGE_KEY,
+            ]),
+            getLocalStorage([SETTINGS_STORAGE_KEY]),
         ]);
+
+        const dashboardSettings = resolveDashboardSettings(syncData, localSettingsData);
+        renderPopupActiveToggleVisibility(Boolean(dashboardSettings.hideSwitch));
+        const popupState = buildPopupState(syncData, currentTabInfo);
+        updateUIState(popupState, currentTabInfo);
+
+        if (!popupState.isExtensionActive) {
+            showScreen('mainScreen');
+            return;
+        }
 
         const youtubeSettings = syncData?.[STORAGE_KEY]?.youtube || {};
         const timerScreenIsActive = await checkIfBlockedByOpeningTimer(youtubeSettings, currentTabInfo?.url || '');
@@ -515,7 +606,6 @@ async function initPopup() {
         }
 
         showScreen('mainScreen');
-        const popupState = buildPopupState(syncData, currentTabInfo);
         updateUIState(popupState, currentTabInfo);
     } catch (error) {
         console.error('[POPUP:INIT]', error);
@@ -529,25 +619,14 @@ if (expandBtn) {
     });
 }
 
-if (globalActiveToggle) {
-    globalActiveToggle.addEventListener('click', async () => {
-        const nextValue = globalActiveToggle.getAttribute('aria-pressed') !== 'true';
-
-        try {
-            await setSyncStorage({ isExtensionActive: nextValue });
-            await refreshPopupView();
-        } catch (error) {
-            console.error('[POPUP:TOGGLE_ACTIVE]', error);
-        }
-    });
-}
+bindPopupActiveToggle();
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName !== 'sync' && areaName !== 'local') {
         return;
     }
 
-    if (changes.isExtensionActive || changes.blockedSites || changes.whitelistedSites || changes.siteTimers || changes[STORAGE_KEY] || changes[OPENING_TIMER_STATE_KEY]) {
+    if (changes.isExtensionActive || changes.blockedSites || changes.whitelistedSites || changes.siteTimers || changes[STORAGE_KEY] || changes[SETTINGS_STORAGE_KEY] || changes[OPENING_TIMER_STATE_KEY]) {
         void initPopup();
     }
 });

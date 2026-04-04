@@ -3,31 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>StayFree Dashboard</title>
+    <title>AntiDistract Dashboard</title>
     <link href="dist/styles.css" rel="stylesheet">
     <link href="assets/css/theme.css" rel="stylesheet">
     <link href="assets/css/all.min.css" rel="stylesheet">
+    <script src="scripts/theme-manager.js"></script>
 </head>
 <body class="theme-app-bg min-h-screen overflow-x-hidden font-sans antialiased">
 <div class="min-h-screen lg:grid lg:grid-cols-[230px_minmax(0,1fr)]">
     <aside class="theme-sidebar-bg theme-border flex flex-col gap-4 border-b px-4 py-4 lg:min-h-screen lg:gap-0 lg:border-b-0 lg:border-r lg:px-4 lg:py-5">
-        <div class="flex items-center justify-between gap-2">
-            <div class="flex items-center gap-2">
-                <div class="theme-surface grid h-10 w-10 place-items-center rounded-full shadow-[0_8px_24px_rgba(15,23,42,0.08)]">
-                    <div class="theme-logo-gradient grid h-8 w-8 place-items-center rounded-full">
-                        <div class="theme-surface grid h-[22px] w-[22px] place-items-center rounded-full">
-                            <svg viewBox="0 0 24 24" class="h-[18px] w-[18px] fill-none stroke-[#63b95b] stroke-[2.8]" aria-hidden="true">
-                                <path d="M5.5 12.5l4.1 4.1L18.8 7.8"></path>
-                            </svg>
-                        </div>
-                    </div>
+        <div class=" flex-cod  items-center justify-between gap-4">
+            <div class="flex items-center gap-2 self-center">
+                <div class="theme-surface overflow-hidden grid h-10 w-10 place-items-center rounded-full shadow-[0_8px_24px_rgba(15,23,42,0.08)]">
+                    <img src="images/user-logo.png" data-theme-logo-light="images/user-logo.png" data-theme-logo-dark="images/user-logo.png" alt="AntiDistract logo" class="theme-logo-image h-full w-full object-cover">
                 </div>
-                <h1 class="theme-title text-[24px] font-bold tracking-[-0.045em]">StayFree</h1>
+                <h1 class="theme-title text-[24px] font-bold leading-none tracking-[-0.045em]">AntiDistract</h1>
             </div>
 
-            <button type="button" aria-label="Tracking toggle" class="theme-surface theme-primary-border relative h-8 w-[60px] rounded-full border p-1">
-                <span class="absolute right-1 top-1 h-6 w-6 rounded-full bg-[var(--theme-primary)] shadow-[0_6px_16px_rgba(124,58,237,0.35)]"></span>
-            </button>
+            <div class="flex items-center gap-2 self-center rounded-xl  py-2.5 sm:px-2 sm:py-1">
+                <button id="dashboard-global-active-toggle" type="button" aria-label="Extension active toggle" aria-pressed="true" class="theme-switch theme-header-switch is-on">
+                    <span class="theme-switch-thumb"></span>
+                </button>
+                <span id="dashboard-global-active-toggle-label" class="theme-primary-text text-[14px] font-medium">Active</span>
+            </div>
         </div>
 
         <div class="lg:mt-9 lg:flex lg:flex-1 lg:flex-col lg:justify-between">
@@ -69,7 +67,7 @@
             <p class="theme-primary-text text-[30px] font-semibold tracking-[-0.03em]">Block WebSite</p>
 
             <div class="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_280px] xl:grid-cols-[minmax(0,1.1fr)_320px]">
-                <div class="theme-dashed-panel rounded-[18px] border-2 border-dashed p-4 shadow-[0_14px_40px_rgba(15,23,42,0.05)] sm:rounded-[22px] sm:p-6">
+                <div class="theme-dashed-panel rounded-[18px] border-2 p-4 shadow-[0_14px_40px_rgba(15,23,42,0.05)] sm:rounded-[22px] sm:p-6">
                     <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                         <div>
                             <p class="theme-title text-[18px] font-semibold tracking-[-0.03em]">Blocked Websites</p>
@@ -120,7 +118,7 @@
             <p class="theme-primary-text text-[12px] font-semibold uppercase tracking-[0.14em]">Dashboard Tab</p>
             <h2 class="theme-title mt-2 text-[30px] font-bold tracking-[-0.045em]">Custom Website</h2>
 
-            <div class="theme-dashed-panel mt-6 rounded-[18px] border-2 border-dashed p-4 shadow-[0_14px_40px_rgba(15,23,42,0.05)] sm:rounded-[22px] sm:p-6">
+            <div class="theme-dashed-panel mt-6 rounded-[18px] border-2 p-4 shadow-[0_14px_40px_rgba(15,23,42,0.05)] sm:rounded-[22px] sm:p-6">
                 <p class="theme-title text-[24px] font-semibold">Them website tuy chinh</p>
                 <p class="theme-muted mt-2 text-[16px]">Ban co the dat giao dien form, input domain, category, hoac rule block trong panel nay.</p>
 
@@ -177,81 +175,81 @@
                 <p class="theme-title mt-4 text-[16px] sm:mt-5">Block specific YouTube features like shorts, comments, or more.</p>
 
                 <div class="mt-6 max-w-4xl space-y-5 sm:mt-8">
-                    <div class="flex items-start gap-2.5 sm:gap-3">
+                    <div class="flex items-center gap-2.5 sm:gap-3">
                         <button type="button" class="theme-switch  " data-switch data-platform="youtube" data-setting="hideHomePage" aria-pressed="false"><span class="theme-switch-thumb"></span></button>
-                        <div class="pt-1">
+                        <div>
                             <div class="flex items-center gap-3">
                                 <p class="theme-title text-[14px]">Hide Home Page</p>
                             </div>
                         </div>
                     </div>
 
-                    <div class="flex items-start gap-2.5 sm:gap-3">
+                    <div class="flex items-center gap-2.5 sm:gap-3">
                         <button type="button" class="theme-switch" data-switch data-platform="youtube" data-setting="hideShorts" aria-pressed="false"><span class="theme-switch-thumb"></span></button>
-                        <div class="pt-1">
+                        <div>
                             <div class="flex items-center gap-3">
                                 <p class="theme-title text-[14px]">Hide Shorts</p>
                             </div>
                         </div>
                     </div>
 
-                    <div class="flex items-start gap-2.5 sm:gap-3">
+                    <div class="flex items-center gap-2.5 sm:gap-3">
                         <button type="button" class="theme-switch" data-switch data-platform="youtube" data-setting="hideComments" aria-pressed="false"><span class="theme-switch-thumb"></span></button>
-                        <div class="pt-1">
+                        <div>
                             <div class="flex items-center gap-3">
                                 <p class="theme-title text-[14px]">Hide Comments</p>
                             </div>
                         </div>
                     </div>
 
-                    <div class="flex items-start gap-2.5 sm:gap-3">
+                    <div class="flex items-center gap-2.5 sm:gap-3">
                         <button type="button" class="theme-switch" data-switch data-platform="youtube" data-setting="hideRecommendedVideos" aria-pressed="false"><span class="theme-switch-thumb"></span></button>
-                        <div class="pt-1">
+                        <div>
                             <div class="flex items-center gap-3">
                                 <p class="theme-title text-[14px]">Hide Recommended Videos</p>
                             </div>
                         </div>
                     </div>
 
-                    <div class="flex items-start gap-2.5 sm:gap-3">
+                    <div class="flex items-center gap-2.5 sm:gap-3">
                         <button type="button" class="theme-switch" data-switch data-platform="youtube" data-setting="hideThumbnails" aria-pressed="false"><span class="theme-switch-thumb"></span></button>
-                        <div class="pt-1">
+                        <div>
                             <div class="flex items-center gap-3">
                                 <p class="theme-title text-[14px]">Hide Thumbnails</p>
                             </div>
                         </div>
                     </div>
 
-                    <div class="flex items-start gap-2.5 sm:gap-3">
+                    <div class="flex items-center gap-2.5 sm:gap-3">
                         <button type="button" class="theme-switch" data-switch data-platform="youtube" data-setting="blurThumbnails" aria-pressed="false"><span class="theme-switch-thumb"></span></button>
-                        <div class="pt-1">
+                        <div>
                             <div class="flex items-center gap-3">
                                 <p class="theme-title text-[14px]">Blur Thumbnails</p>
                             </div>
                         </div>
                     </div>
 
-                    <div class="flex items-start gap-2.5 sm:gap-3">
+                    <div class="flex items-center gap-2.5 sm:gap-3">
                         <button type="button" class="theme-switch" data-switch data-platform="youtube" data-setting="hideSubscriptions" aria-pressed="false"><span class="theme-switch-thumb"></span></button>
-                        <div class="pt-1">
+                        <div>
                             <div class="flex items-center gap-3">
                                 <p class="theme-title text-[14px]">Hide Subscriptions</p>
                             </div>
                         </div>
                     </div>
 
-                    <div class="flex items-start gap-2.5 sm:gap-3">
+                    <div class="flex items-center gap-2.5 sm:gap-3">
                         <button type="button" class="theme-switch" data-switch data-platform="youtube" data-setting="hideExplore" aria-pressed="false"><span class="theme-switch-thumb"></span></button>
-                        <div class="pt-1">
+                        <div>
                             <div class="flex items-center gap-3">
                                 <p class="theme-title text-[14x]">Hide Explore</p>
                             </div>
                         </div>
                     </div>
 
-                    <div class="flex items-start gap-2.5 sm:gap-3">
+                    <div class="flex items-center gap-2.5 sm:gap-3">
                         <button type="button" class="theme-switch" data-switch data-platform="youtube" data-setting="hideTopBar" aria-pressed="false"><span class="theme-switch-thumb"></span></button>
-                        <div class="pt-1">
+                        <div>
                             <div class="flex items-center gap-3">
                                 <p class="theme-title text-[14px]">Hide Top Bar</p>
                             </div>
@@ -259,9 +257,9 @@
                         </div>
                     </div>
 
-                    <div class="flex items-start gap-2.5 sm:gap-3">
+                    <div class="flex items-center gap-2.5 sm:gap-3">
                         <button type="button" class="theme-switch" data-switch data-platform="youtube" data-setting="disableEndCards" aria-pressed="false"><span class="theme-switch-thumb"></span></button>
-                        <div class="pt-1">
+                        <div>
                             <div class="flex items-center gap-3">
                                 <p class="theme-title text-[14px]">Disable End Cards</p>
                                 <span class="theme-primary-text inline-flex h-5 w-5 items-center justify-center rounded-full bg-violet-100 text-[12px] font-semibold">?</span>
@@ -270,9 +268,9 @@
                         </div>
                     </div>
 
-                    <div class="flex items-start gap-2.5 sm:gap-3">
+                    <div class="flex items-center gap-2.5 sm:gap-3">
                         <button type="button" class="theme-switch" data-switch data-platform="youtube" data-setting="blackWhiteMode" aria-pressed="false"><span class="theme-switch-thumb"></span></button>
-                        <div class="pt-1">
+                        <div>
                             <div class="flex items-center gap-3">
                                 <p class="theme-title text-[14px]">Black &amp; White Mode</p>
                                 <span class="theme-primary-text inline-flex h-5 w-5 items-center justify-center rounded-full bg-violet-100 text-[12px] font-semibold">?</span>
@@ -281,9 +279,9 @@
                         </div>
                     </div>
 
-                    <div class="flex items-start gap-2.5 sm:gap-3">
+                    <div class="flex items-center gap-2.5 sm:gap-3">
                         <button type="button" class="theme-switch" data-switch data-platform="youtube" data-setting="disableAutoplay" aria-pressed="false"><span class="theme-switch-thumb"></span></button>
-                        <div class="pt-1">
+                        <div>
                             <div class="flex items-center gap-3">
                                 <p class="theme-title text-[14px]">Disable Autoplay</p>
                             </div>
@@ -291,9 +289,9 @@
                         </div>
                     </div>
 
-                    <div class="flex items-start gap-2.5 sm:gap-3">
+                    <div class="flex items-center gap-2.5 sm:gap-3">
                         <button type="button" class="theme-switch" data-switch data-platform="youtube" data-setting="enableTheaterMode" aria-pressed="false"><span class="theme-switch-thumb"></span></button>
-                        <div class="pt-1">
+                        <div>
                             <div class="flex items-center gap-3">
                                 <p class="theme-title text-[14px]">Auto Theater Mode</p>
                             </div>
@@ -312,12 +310,12 @@
                     </div>
 
                     <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                        <div class="flex items-start gap-2.5 sm:gap-3">
+                        <div class="flex items-center gap-2.5 sm:gap-3">
                             <label class="theme-switch">
                                 <input type="checkbox" name="openingTimerEnabled" data-app="youtube" class="sr-only">
                                 <span class="theme-switch-thumb"></span>
                             </label>
-                            <div class="pt-1">
+                            <div>
                                 <p class="theme-title text-[14px]">Opening Timer</p>
                                 <p class="theme-muted mt-1 text-[9px]">Tạo độ trễ khi mở trang để rèn luyện sự kiên nhẫn</p>
                             </div>
@@ -325,7 +323,7 @@
 
                         <div class="flex items-center gap-2">
                             <input id="yt-opening-timer-input" type="number" min="0" value="0" disabled class="theme-surface theme-border w-20 rounded-xl border px-3 py-2 text-[16px] outline-none disabled:cursor-not-allowed disabled:opacity-50">
-                            <select id="yt-opening-timer-unit" disabled class="theme-surface theme-border rounded-xl border px-3 py-2 text-[12px] outline-none disabled:cursor-not-allowed disabled:opacity-50">
+                            <select id="yt-opening-timer-unit" disabled class="theme-select !w-[140px] !min-h-[40px] !px-3 !py-2 text-[12px]">
                                 <option value="seconds">Giây</option>
                                 <option value="minutes">Phút</option>
                             </select>
@@ -340,31 +338,46 @@
                         In App Blocking
                     </button>
                     <span class="theme-muted text-[14px]">&gt;</span>
-                    <h2 class="theme-title text-[30px] font-semibold tracking-[-0.03em]">Facebook</h2>
+                    <h2 class="theme-primary-text text-[30px] font-semibold tracking-[-0.03em]">Facebook</h2>
                 </div>
 
-                <p class="theme-text mt-8 text-[16px] sm:mt-14">Block specific Facebook features like stories, reels, or more.</p>
-                <p class="theme-title mt-10 text-[18px] font-semibold uppercase sm:mt-16">In-App Blocking</p>
+                <p class="theme-title mt-4 text-[16px] sm:mt-5">Block specific Facebook features like stories, reels, or more.</p>
 
-                <div class="mt-8 max-w-4xl space-y-8 sm:mt-10 sm:space-y-12 lg:space-y-16">
-                    <div class="flex items-start justify-between gap-4 sm:items-center sm:gap-6">
-                        <p class="theme-text text-[16px]">Hide Stories</p>
+                <div class="mt-6 max-w-4xl space-y-5 sm:mt-8">
+                    <div class="flex items-center gap-2.5 sm:gap-3">
                         <button type="button" class="theme-switch" data-switch data-platform="facebook" data-setting="hideStories" aria-pressed="false"><span class="theme-switch-thumb"></span></button>
+                        <div>
+                            <div class="flex items-center gap-3">
+                                <p class="theme-title text-[14px]">Hide Stories</p>
+                            </div>
+                        </div>
                     </div>
 
-                    <div class="flex items-start justify-between gap-4 sm:items-center sm:gap-6">
-                        <p class="theme-text text-[16px]">Hide Reels</p>
+                    <div class="flex items-center gap-2.5 sm:gap-3">
                         <button type="button" class="theme-switch is-on" data-switch data-platform="facebook" data-setting="hideReels" aria-pressed="true"><span class="theme-switch-thumb"></span></button>
+                        <div>
+                            <div class="flex items-center gap-3">
+                                <p class="theme-title text-[14px]">Hide Reels</p>
+                            </div>
+                        </div>
                     </div>
 
-                    <div class="flex items-start justify-between gap-4 sm:items-center sm:gap-6">
-                        <p class="theme-text text-[16px]">Hide Marketplace</p>
+                    <div class="flex items-center gap-2.5 sm:gap-3">
                         <button type="button" class="theme-switch" data-switch data-platform="facebook" data-setting="hideMarketplace" aria-pressed="false"><span class="theme-switch-thumb"></span></button>
+                        <div>
+                            <div class="flex items-center gap-3">
+                                <p class="theme-title text-[14px]">Hide Marketplace</p>
+                            </div>
+                        </div>
                     </div>
 
-                    <div class="flex items-start justify-between gap-4 sm:items-center sm:gap-6">
-                        <p class="theme-text text-[16px]">Black &amp; White Mode</p>
+                    <div class="flex items-center gap-2.5 sm:gap-3">
                         <button type="button" class="theme-switch" data-switch data-platform="facebook" data-setting="blackWhiteMode" aria-pressed="false"><span class="theme-switch-thumb"></span></button>
+                        <div>
+                            <div class="flex items-center gap-3">
+                                <p class="theme-title text-[14px]">Black &amp; White Mode</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -374,16 +387,135 @@
             <p class="theme-primary-text text-[12px] font-semibold uppercase tracking-[0.14em]">Dashboard Tab</p>
             <h2 class="theme-title mt-2 text-[30px] font-bold tracking-[-0.045em]">Settings</h2>
 
-            <div class="theme-dashed-panel mt-6 rounded-[18px] border-2 border-dashed p-4 shadow-[0_14px_40px_rgba(15,23,42,0.05)] sm:rounded-[22px] sm:p-6">
-                <p class="theme-title text-[24px] font-semibold">General Settings</p>
-                <div class="mt-6 space-y-4">
-                    <div class="theme-surface theme-border flex flex-col items-start gap-3 rounded-2xl border px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
-                        <span class="theme-title text-[16px] font-medium">Enable notifications</span>
-                        <span class="theme-status-chip rounded-full px-3 py-1.5 text-[14px] font-semibold uppercase">On</span>
+            <div id="settings-container" class="theme-dashed-panel mt-6 rounded-[18px] border-2 p-4 shadow-[0_14px_40px_rgba(15,23,42,0.05)] transition sm:rounded-[22px] sm:p-6">
+                <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <p class="theme-title text-[24px] font-semibold">General Settings</p>
+                        <p class="theme-muted mt-2 text-[14px]">Configure dashboard behavior, redirect copy, notifications, and privacy preferences.</p>
                     </div>
-                    <div class="theme-surface theme-border flex flex-col items-start gap-3 rounded-2xl border px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
-                        <span class="theme-title text-[16px] font-medium">Sync blocked websites</span>
-                        <span class="theme-status-chip rounded-full px-3 py-1.5 text-[14px] font-semibold uppercase">On</span>
+                    <span id="settings-lock-badge" class="hidden rounded-full bg-amber-100 px-3 py-1.5 text-[12px] font-semibold uppercase tracking-[0.08em] text-amber-700">
+                        Locked
+                    </span>
+                </div>
+
+                <div class="mt-6 overflow-hidden rounded-[22px] border border-slate-200 bg-white/80">
+                    <div class="px-4 py-4 sm:px-5">
+                        <div class="flex items-start gap-3">
+                            <label class="flex items-center pt-0.5">
+                                <input id="settings-activate-switch" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-[var(--theme-primary)] focus:ring-[var(--theme-primary)]">
+                            </label>
+                            <div>
+                                <p class="theme-title text-[14px] font-semibold">Activate Extension</p>
+                                <p class="theme-muted mt-1 text-[12px]">This switch is the inverse of <code>hideSwitch</code>.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr class="border-slate-200">
+
+                    <div class="grid gap-4 px-4 py-4 sm:grid-cols-2 sm:px-5 lg:grid-cols-[180px_180px]">
+                        <div class="space-y-2">
+                            <label for="settings-theme" class="theme-title block text-[16px] font-semibold">Theme</label>
+                            <select id="settings-theme" class="theme-select">
+                                <option value="auto">Follow Browser</option>
+                                <option value="light">Light</option>
+                                <option value="dark">Dark</option>
+                            </select>
+                        </div>
+
+                        <div class="space-y-2">
+                            <label for="settings-language" class="theme-title block text-[16px] font-semibold">Language</label>
+    
+                            <select id="settings-language" class="theme-select">
+                                <option value="en-US">English (US)</option>
+        <option value="vi">Tiếng Việt</option>
+                                <option value="en-GB">English (UK)</option>
+                            </select>
+</div>
+                    </div>
+
+                    <hr class="border-slate-200">
+
+                    <div class="px-4 py-4 sm:px-5">
+                        <p class="theme-title text-[16px] font-semibold">Behavior Toggles</p>
+                        <div class="mt-4 space-y-3">
+                            <label class="flex items-center gap-3">
+                                <input id="settings-floating-timer" type="checkbox" class="mt-0.5 h-4 w-4 shrink-0  rounded border-slate-300 text-[var(--theme-primary)] focus:ring-[var(--theme-primary)]">
+                                <div>
+                                    <p class="theme-title text-[13px] font-medium">Floating Timer</p>
+                                    <p class="theme-muted mt-1 text-[11px]">Show a floating countdown timer while browsing.</p>
+                                </div>
+                            </label>
+
+                            <label class="flex items-center gap-3">
+                                <input id="settings-disable-sync" type="checkbox" class="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-[var(--theme-primary)] focus:ring-[var(--theme-primary)]">
+                                <div>
+                                    <p class="theme-title text-[13px] font-medium">Disable Sync</p>
+                                    <p class="theme-muted mt-1 text-[11px]">Store settings locally instead of syncing across browsers.</p>
+                                </div>
+                            </label>
+
+                            <label class="flex items-center gap-3">
+                                <input id="settings-track-audio" type="checkbox" class="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-[var(--theme-primary)] focus:ring-[var(--theme-primary)]">
+                                <div>
+                                    <p class="theme-title text-[13px] font-medium">Track Tabs Playing Audio</p>
+                                    <p class="theme-muted mt-1 text-[11px]">Use active audio playback as a signal for focus tracking.</p>
+                                </div>
+                            </label>
+
+                            <label class="flex items-center gap-3">
+                                <input id="settings-never-show-updates" type="checkbox" class="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-[var(--theme-primary)] focus:ring-[var(--theme-primary)]">
+                                <div>
+                                    <p class="theme-title text-[13px] font-medium">Never Show Update Notices</p>
+                                    <p class="theme-muted mt-1 text-[11px]">Suppress future update banners and notices.</p>
+                                </div>
+                            </label>
+
+                            <label class="flex items-center gap-3">
+                                <input id="settings-hide-allow-links" type="checkbox" class="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-[var(--theme-primary)] focus:ring-[var(--theme-primary)]">
+                                <div>
+                                    <p class="theme-title text-[13px] font-medium">Hide Allow Links</p>
+                                    <p class="theme-muted mt-1 text-[11px]">Hide allow-listed shortcuts and bypass links in block surfaces.</p>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <hr class="border-slate-200">
+
+                    <div class="px-4 py-4 sm:px-5">
+                        <label for="settings-redirect-message" class="theme-title block text-[16px] font-semibold">Redirect Message</label>
+                        <p class="theme-muted mt-1 text-[12px]">Shown when the user is redirected away from distracting content.</p>
+                        <input id="settings-redirect-message" type="text" placeholder="Take a breath and get back to the task." class="theme-surface theme-border mt-3 w-full rounded-xl border px-3 py-2.5 text-[14px] outline-none">
+                    </div>
+
+                    <hr class="border-slate-200">
+
+                    <div class="px-4 py-4 sm:px-5">
+                        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <p class="theme-title text-[16px] font-semibold">Notifications</p>
+                                <p class="theme-muted mt-1 text-[12px]">Countdown alerts stored in seconds.</p>
+                            </div>
+                        </div>
+
+                        <ul id="settings-notifications-list" class="mt-4 space-y-3"></ul>
+
+                        <button id="settings-add-notification" type="button" class="theme-notification-save mt-4 border-0 shadow-[0_6px_18px_rgba(15,23,42,0.08)] transition">
+                            Save Notifications
+                        </button>
+                    </div>
+
+                    <hr class="border-slate-200">
+
+                    <div class="px-4 py-4 sm:px-5">
+                        <label class="flex items-center gap-3">
+                            <input id="settings-opt-out-data" type="checkbox" class="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-[var(--theme-primary)] focus:ring-[var(--theme-primary)]">
+                            <div>
+                                <p class="theme-title text-[14px] font-semibold">Opt Out Data Collection</p>
+                                <p class="theme-muted mt-1 text-[11px]">Requires confirmation before applying changes.</p>
+                            </div>
+                        </label>
                     </div>
                 </div>
             </div>
@@ -393,7 +525,7 @@
             <p class="theme-primary-text text-[12px] font-semibold uppercase tracking-[0.14em]">Dashboard Tab</p>
             <h2 class="theme-title mt-2 text-[30px] font-bold tracking-[-0.045em]">Help</h2>
 
-            <div class="theme-dashed-panel mt-6 rounded-[18px] border-2 border-dashed p-4 shadow-[0_14px_40px_rgba(15,23,42,0.05)] sm:rounded-[22px] sm:p-6">
+            <div class="theme-dashed-panel mt-6 rounded-[18px] border-2 p-4 shadow-[0_14px_40px_rgba(15,23,42,0.05)] sm:rounded-[22px] sm:p-6">
                 <p class="theme-title text-[24px] font-semibold">Need support?</p>
                 <div class="mt-5 space-y-3">
                     <div class="theme-soft-surface rounded-2xl p-4">

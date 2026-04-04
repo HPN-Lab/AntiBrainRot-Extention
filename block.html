@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Stay Focused - Đã chặn</title>
+    <link href="assets/css/theme.css" rel="stylesheet">
+    <script src="scripts/theme-manager.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -17,6 +19,20 @@
         };
     </script>
     <style>
+        :root {
+            --block-overlay-bg: rgba(0, 0, 0, 0.3);
+            --block-text-color: #fbbf24;
+        }
+
+        :root[data-theme="dark"] {
+            --block-overlay-bg: rgba(2, 6, 23, 0.54);
+            --block-text-color: #f7cf65;
+        }
+
+        body {
+            background-color: var(--theme-app-bg);
+        }
+
         .block-bg-blur {
             filter: blur(5px);
         }
@@ -24,17 +40,25 @@
         .block-bg-opacity {
             opacity: 0.9;
         }
+
+        .block-overlay {
+            background: var(--block-overlay-bg);
+        }
+
+        .block-text {
+            color: var(--block-text-color);
+        }
     </style>
 </head>
-<body class="h-screen w-screen overflow-hidden bg-black font-sans antialiased">
+<body class="h-screen w-screen overflow-hidden font-sans antialiased">
     <div
         class="absolute inset-0 z-0 scale-110 bg-cover bg-center block-bg-blur block-bg-opacity"
         style="background-image: url('images/block-bg.png');"
     ></div>
 
-    <div class="absolute inset-0 z-10 bg-black/30"></div>
+    <div class="block-overlay absolute inset-0 z-10"></div>
 
-    <main class="relative z-20 flex h-full w-full items-center justify-center px-4 text-center text-block-yellow">
+    <main class="block-text relative z-20 flex h-full w-full items-center justify-center px-4 text-center">
         <div class="flex flex-col items-center justify-center gap-4">
             <h1 class="text-6xl font-extrabold tracking-tight md:text-8xl">
                 Stay Focused!

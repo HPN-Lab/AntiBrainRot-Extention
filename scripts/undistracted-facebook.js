@@ -2,6 +2,7 @@
 /* global chrome */
 
 const STORAGE_KEY = 'inAppBlockingSettings';
+const EXTENSION_ACTIVE_KEY = 'isExtensionActive';
 const STYLE_ID = 'antidoom-fb-style';
 const DEFAULT_FACEBOOK_SETTINGS = {
     hideStories: false,
@@ -11,6 +12,7 @@ const DEFAULT_FACEBOOK_SETTINGS = {
 };
 let cachedSettings = { ...DEFAULT_FACEBOOK_SETTINGS };
 let applyTimer = null;
+let isExtensionActive = true;
 
 function mergeFacebookSettings(storedSettings = {}) {
     return { ...DEFAULT_FACEBOOK_SETTINGS, ...(storedSettings.facebook || {}) };
@@ -97,6 +99,12 @@ function getFacebookCSS(settings) {
 }
 
 function applyFacebookSettings(settings) {
+    if (!isExtensionActive) {
+        removeCSS();
+        cachedSettings = { ...DEFAULT_FACEBOOK_SETTINGS };
+        return;
+    }
+
     cachedSettings = settings;
     const css = getFacebookCSS(settings);
 
@@ -108,7 +116,14 @@ function applyFacebookSettings(settings) {
 }
 
 function loadAndApplySettings() {
-    chrome.storage.sync.get([STORAGE_KEY], (data) => {
+    chrome.storage.sync.get([STORAGE_KEY, EXTENSION_ACTIVE_KEY], (data) => {
+        isExtensionActive = data?.[EXTENSION_ACTIVE_KEY] !== false;
+        if (!isExtensionActive) {
+            removeCSS();
+            cachedSettings = { ...DEFAULT_FACEBOOK_SETTINGS };
+            return;
+        }
+
         const settings = mergeFacebookSettings(data[STORAGE_KEY]);
         applyFacebookSettings(settings);
     });
@@ -120,12 +135,17 @@ function scheduleApply() {
     }
 
     applyTimer = setTimeout(() => {
+        if (!isExtensionActive) {
+            removeCSS();
+            return;
+        }
+
         applyFacebookSettings(cachedSettings);
     }, 120);
 }
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
-    if (areaName === 'sync' && changes[STORAGE_KEY]) {
+    if (areaName === 'sync' && (changes[STORAGE_KEY] || changes[EXTENSION_ACTIVE_KEY])) {
         loadAndApplySettings();
     }
 });

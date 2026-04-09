@@ -154,7 +154,7 @@
                     <button type="button" data-inapp-target="facebook" class="theme-surface flex w-full flex-col items-start gap-4 rounded-2xl px-4 py-4 text-left transition hover:bg-white/70 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-5">
                         <div>
                             <p class="theme-title text-[20px] font-semibold">Facebook</p>
-                            <p class="theme-text mt-1 text-[16px]">Block specific Facebook features like stories, reels, or more.</p>
+                            <p class="theme-text mt-1 text-[16px]">Loc noi dung Facebook: sidebar, bai viet, quang cao, loc tu khoa, v.v.</p>
                         </div>
                         <svg viewBox="0 0 24 24" class="h-7 w-7 shrink-0 self-end fill-none stroke-[var(--theme-primary)] stroke-[2.2] sm:self-auto" aria-hidden="true">
                             <path d="M9 5l7 7-7 7"></path>
@@ -272,7 +272,7 @@
                         <button type="button" class="theme-switch" data-switch data-platform="youtube" data-setting="blackWhiteMode" aria-pressed="false"><span class="theme-switch-thumb"></span></button>
                         <div>
                             <div class="flex items-center gap-3">
-                                <p class="theme-title text-[14px]">Black &amp; White Mode</p>
+                                <p class="theme-title text-[14px]">An Loi tat</p>
                                 <span class="theme-primary-text inline-flex h-5 w-5 items-center justify-center rounded-full bg-violet-100 text-[12px] font-semibold">?</span>
                             </div>
                             <p class="theme-muted mt-1 text-[9px]">Use only black and white colors for any YouTube pages</p>
@@ -341,45 +341,11 @@
                     <h2 class="theme-primary-text text-[30px] font-semibold tracking-[-0.03em]">Facebook</h2>
                 </div>
 
-                <p class="theme-title mt-4 text-[16px] sm:mt-5">Block specific Facebook features like stories, reels, or more.</p>
+                <p class="theme-title mt-4 max-w-4xl text-[16px] sm:mt-5">
+                    Nút mục lớn chỉ bật/tắt khả năng chỉnh các mục con (enable / disable). Mục con không tự bật hay tự tắt theo mục lớn — trạng thái bật/tắt từng mục con vẫn được lưu. Dùng mũi tên để thu gọn / mở rộng.
+                </p>
 
-                <div class="mt-6 max-w-4xl space-y-5 sm:mt-8">
-                    <div class="flex items-center gap-2.5 sm:gap-3">
-                        <button type="button" class="theme-switch" data-switch data-platform="facebook" data-setting="hideStories" aria-pressed="false"><span class="theme-switch-thumb"></span></button>
-                        <div>
-                            <div class="flex items-center gap-3">
-                                <p class="theme-title text-[14px]">Hide Stories</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="flex items-center gap-2.5 sm:gap-3">
-                        <button type="button" class="theme-switch is-on" data-switch data-platform="facebook" data-setting="hideReels" aria-pressed="true"><span class="theme-switch-thumb"></span></button>
-                        <div>
-                            <div class="flex items-center gap-3">
-                                <p class="theme-title text-[14px]">Hide Reels</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="flex items-center gap-2.5 sm:gap-3">
-                        <button type="button" class="theme-switch" data-switch data-platform="facebook" data-setting="hideMarketplace" aria-pressed="false"><span class="theme-switch-thumb"></span></button>
-                        <div>
-                            <div class="flex items-center gap-3">
-                                <p class="theme-title text-[14px]">Hide Marketplace</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="flex items-center gap-2.5 sm:gap-3">
-                        <button type="button" class="theme-switch" data-switch data-platform="facebook" data-setting="blackWhiteMode" aria-pressed="false"><span class="theme-switch-thumb"></span></button>
-                        <div>
-                            <div class="flex items-center gap-3">
-                                <p class="theme-title text-[14px]">Black &amp; White Mode</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <div id="facebook-inapp-settings-root" class="max-w-4xl"></div>
             </div>
         </section>
 

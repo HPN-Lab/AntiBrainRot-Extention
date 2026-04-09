@@ -1,11 +1,8 @@
 {
   "manifest_version": 3,
-
   "name": "VMU - AntiDistract",
   "description": "",
   "version": "2.0",
-
-
   "permissions": [
     "storage",
     "tabs",
@@ -13,9 +10,7 @@
     "alarms",
     "webNavigation",
     "notifications",
-
     "activeTab"
-
   ],
   "optional_permissions": [
     "topSites",
@@ -25,16 +20,12 @@
   "optional_host_permissions": [
     "<all_urls>"
   ],
-
-
   "background": {
     "service_worker": "scripts/service_worker.js"
   },
-
   "content_security_policy": {
-    "extension_pages": "default-src 'self'; script-src 'self'; object-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; "
+    "extension_pages": "default-src 'self'; connect-src 'self' http://127.0.0.1:7371; script-src 'self'; object-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; "
   },
-
   "content_scripts": [
     {
       "matches": [
@@ -48,7 +39,6 @@
         "/overlay.css"
       ]
     },
-
     {
       "matches": [
         "*://youtube.com/*",
@@ -69,30 +59,22 @@
         "/scripts/undistracted-facebook.js"
       ]
     }
-
   ],
   "icons": {
-
     "64": "images/icon64.png",
     "128": "images/icon128.png",
     "256": "images/icon256.png",
     "512": "images/icon512.png",
     "1024": "images/icon1024.png"
-
   },
-
   "options_ui": {
     "page": "dashboard.html",
     "open_in_tab": true
   },
-
   "action": {
     "default_icon": {
       "128": "images/icon128.png"
-      
     },
     "default_popup": "popup.html"
-
   }
-
 }

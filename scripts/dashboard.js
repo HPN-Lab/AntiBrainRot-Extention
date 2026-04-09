@@ -1,11 +1,14 @@
 'use strict';
 
+// #region agent log
+fetch('http://127.0.0.1:7371/ingest/7634893a-f87f-456c-8e21-990ad9d66e04',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'71e079'},body:JSON.stringify({sessionId:'71e079',runId:'run3',hypothesisId:'H0',location:'dashboard.js:bootstrap',message:'dashboard script loaded',data:{href:location.href},timestamp:Date.now()})}).catch(()=>{});
+// #endregion
+
 const tabs = Array.from(document.querySelectorAll('.dashboard-tab'));
 const panels = Array.from(document.querySelectorAll('.dashboard-panel'));
 const inAppViews = Array.from(document.querySelectorAll('[data-inapp-view]'));
 const inAppTargets = Array.from(document.querySelectorAll('[data-inapp-target]'));
 const inAppBackButtons = Array.from(document.querySelectorAll('[data-inapp-back]'));
-const switches = Array.from(document.querySelectorAll('[data-switch]'));
 const openingTimerToggle = document.querySelector('input[name="openingTimerEnabled"][data-app="youtube"]');
 const openingTimerToggleShell = openingTimerToggle?.closest('.theme-switch') || null;
 const openingTimerInput = document.getElementById('yt-opening-timer-input');
@@ -18,6 +21,128 @@ const DEFAULT_ROUTE = {
     panel: 'block',
     view: 'list',
 };
+
+function createDefaultFacebookSettings() {
+    const masters = [
+        'masterSectionI',
+        'masterSectionII',
+        'masterSectionIII',
+        'masterSectionIV',
+        'masterSectionVI',
+        'masterSectionVII',
+        'masterSectionIX',
+    ];
+    const fb = { textFilterKeywords: '', hashtagFilterKeywords: '', allowByUrlList: '' };
+    masters.forEach((k) => {
+        fb[k] = true;
+    });
+    const restFalse = [
+        'hideEntireNewsfeed',
+        'hideProfileInfoUpdates',
+        'hideProductsShown',
+        'hideTrendingPosts',
+        'hideLikedPagePost',
+        'hideLikedLinkPost',
+        'hideSharedLinkPost',
+        'hideCommentedLinkPost',
+        'hideLikePageButtons',
+        'hideAllPhotoPosts',
+        'hideSharedPhotoAlbum',
+        'hideProfilePictureCoverChange',
+        'hideUploadedPhoto',
+        'hide3dPhoto',
+        'hideLikedPhoto',
+        'hideCommentedOnPhoto',
+        'disableVideoAutoplayFacebook',
+        'hideAllVideoPosts',
+        'hideLiveVideoPosts',
+        'hideReelsShortVideo',
+        'hideSharedVideo',
+        'hideLikedVideo',
+        'hideCommentedOnVideo',
+        'hideHashtagPosts',
+        'allowByUrlOnly',
+        'hideSponsoredPosts',
+        'hideSuggestedPosts',
+        'hideMarketplaceAds',
+        'hideRightColumnAll',
+        'hideRightGameAppRequests',
+        'hideRightMarketplacePanel',
+        'hideRightRecommendedPages',
+        'hideRightTodaysGames',
+        'hideRightSuggestedGroups',
+        'hideRightPokes',
+        'hideRightHappeningLive',
+        'hideRightEvents',
+        'hideRightFriendRequests',
+        'hideRightYourPages',
+        'hideRightBirthdays',
+        'hideRightWatch',
+        'hideRightSaved',
+        'hideRightRelated',
+        'hideLeftAdsManager',
+        'hideLeftBrowse',
+        'hideLeftCampus',
+        'hideLeftCommunityHelp',
+        'hideLeftCreate',
+        'hideLeftCreatorStudio',
+        'hideLeftEvents',
+        'hideLeftFavorites',
+        'hideLeftFriends',
+        'hideLeftFundraisers',
+        'hideLeftGaming',
+        'hideLeftGroups',
+        'hideLeftJobs',
+        'hideLeftMarketplace',
+        'hideLeftMemories',
+        'hideLeftMessenger',
+        'hideLeftMetaAI',
+        'hideLeftNews',
+        'hideLeftOffers',
+        'hideLeftOrderFood',
+        'hideLeftPages',
+        'hideLeftReels',
+        'hideLeftSaved',
+        'hideLeftShops',
+        'hideLeftWatch',
+        'hideLeftWeather',
+        'hideLeftBloodDonations',
+        'hideLeftClimateScience',
+        'hideLeftCrisisResponse',
+        'hideLeftDating',
+        'hideLeftMovies',
+        'hideLeftMusic',
+        'hideLeftMostRecent',
+        'hideLeftLiveVideos',
+        'hideLeftGameStreaming',
+        'hideLeftRecentActivity',
+        'hideLeftRecentAdActivity',
+        'hideLeftVotingInformation',
+        'hideLeftLocal',
+        'hideLeftAbout',
+        'freezeTopNavBar',
+        'showLogoutButton',
+        'hideSearchBoxAndPopup',
+        'hideNavHome',
+        'hideNavPages',
+        'hideNavReels',
+        'hideNavMarketplace',
+        'hideNavGroups',
+        'hideNavGaming',
+        'hideNavCreate',
+        'hideNavMessenger',
+        'hideNavNotifications',
+        'hideNavNews',
+        'hideNavEvents',
+        'hideNavFriendRequests',
+        'hideNavAccountSwitcher',
+    ];
+    restFalse.forEach((k) => {
+        fb[k] = false;
+    });
+    return fb;
+}
+
 const DEFAULT_SETTINGS = {
     youtube: {
         hideHomePage: false,
@@ -38,12 +163,7 @@ const DEFAULT_SETTINGS = {
         openingTimerValue: 0,
         openingTimerUnit: 'seconds',
     },
-    facebook: {
-        hideStories: false,
-        hideReels: true,
-        hideMarketplace: false,
-        blackWhiteMode: false,
-    },
+    facebook: createDefaultFacebookSettings(),
 };
 const DEFAULT_DASHBOARD_SETTINGS = {
     hideSwitch: false,
@@ -106,11 +226,638 @@ function mergeDashboardSettings(storedSettings = {}) {
     };
 }
 
+function migrateFacebookRomanSectionMasters(fb, storedFbRaw = {}) {
+    const out = { ...fb };
+    const oldFeedKeys = ['masterFeedFilters', 'masterLinkPosts', 'masterPhotoPosts', 'masterVideoPosts'];
+
+    if (!Object.prototype.hasOwnProperty.call(storedFbRaw, 'masterSectionI')) {
+        const hadOldFeedMasters = oldFeedKeys.some((k) => storedFbRaw[k] !== undefined);
+        if (hadOldFeedMasters) {
+            out.masterSectionI = oldFeedKeys.every((k) => fb[k] !== false);
+        }
+    }
+
+    if (!Object.prototype.hasOwnProperty.call(storedFbRaw, 'masterSectionII') && fb.masterAdsContent !== undefined) {
+        out.masterSectionII = fb.masterAdsContent !== false;
+    }
+    if (!Object.prototype.hasOwnProperty.call(storedFbRaw, 'masterSectionIII') && fb.masterTextFilter !== undefined) {
+        out.masterSectionIII = fb.masterTextFilter !== false;
+    }
+    if (!Object.prototype.hasOwnProperty.call(storedFbRaw, 'masterSectionIV') && fb.masterAllowByUrl !== undefined) {
+        out.masterSectionIV = fb.masterAllowByUrl !== false;
+    }
+    if (!Object.prototype.hasOwnProperty.call(storedFbRaw, 'masterSectionVI') && fb.masterRightColumn !== undefined) {
+        out.masterSectionVI = fb.masterRightColumn !== false;
+    }
+    if (!Object.prototype.hasOwnProperty.call(storedFbRaw, 'masterSectionVII') && fb.masterLeftColumn !== undefined) {
+        out.masterSectionVII = fb.masterLeftColumn !== false;
+    }
+    if (!Object.prototype.hasOwnProperty.call(storedFbRaw, 'masterSectionIX') && fb.masterTopNav !== undefined) {
+        out.masterSectionIX = fb.masterTopNav !== false;
+    }
+    // #region agent log
+    fetch('http://127.0.0.1:7371/ingest/7634893a-f87f-456c-8e21-990ad9d66e04', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '5f42da' }, body: JSON.stringify({ sessionId: '5f42da', hypothesisId: 'H1_post_fix', runId: 'post-fix', location: 'dashboard.js:migrateFacebookRomanSectionMasters', message: 'migration result', data: { storedHasII: Object.prototype.hasOwnProperty.call(storedFbRaw, 'masterSectionII'), masterSectionII_in: fb.masterSectionII, masterSectionII_out: out.masterSectionII, masterAdsContent: fb.masterAdsContent, skippedAdsMap: Object.prototype.hasOwnProperty.call(storedFbRaw, 'masterSectionII') }, timestamp: Date.now() }) }).catch(() => {});
+    // #endregion
+    return out;
+}
+
 function mergeSettings(storedSettings = {}) {
+    const storedFbRaw = storedSettings.facebook || {};
+    const mergedFacebook = { ...DEFAULT_SETTINGS.facebook, ...storedFbRaw };
     return {
         youtube: { ...DEFAULT_SETTINGS.youtube, ...(storedSettings.youtube || {}) },
-        facebook: { ...DEFAULT_SETTINGS.facebook, ...(storedSettings.facebook || {}) },
+        facebook: migrateFacebookRomanSectionMasters(mergedFacebook, storedFbRaw),
     };
+}
+
+function sanitizeSettingsForStorage(settings = currentSettings) {
+    const normalized = mergeSettings(settings);
+
+    return {
+        youtube: { ...normalized.youtube },
+        facebook: { ...normalized.facebook },
+    };
+}
+
+function escapeHtmlFacebook(str) {
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function renderFacebookSubheading(label) {
+    return `<p class="fb-subheading theme-title text-[12px] font-semibold uppercase tracking-[0.08em] text-[var(--theme-muted)]">${escapeHtmlFacebook(label)}</p>`;
+}
+
+function normalizeHashtagToken(value) {
+    const cleaned = String(value || '').trim().toLowerCase();
+    if (!cleaned) {
+        return '';
+    }
+    const withHash = cleaned.startsWith('#') ? cleaned : `#${cleaned}`;
+    const compact = withHash.replace(/\s+/g, '');
+    if (compact === '#') {
+        return '';
+    }
+    return compact;
+}
+
+function parseHashtagKeywords(raw) {
+    if (typeof raw !== 'string' || !raw.trim()) {
+        return [];
+    }
+    const uniq = new Set();
+    raw.split(/\r?\n/).forEach((line) => {
+        const normalized = normalizeHashtagToken(line);
+        if (normalized) {
+            uniq.add(normalized);
+        }
+    });
+    return Array.from(uniq);
+}
+
+function serializeHashtagKeywords(tags) {
+    return Array.isArray(tags) ? tags.join('\n') : '';
+}
+
+function renderHashtagChips(tags, canEdit) {
+    if (!Array.isArray(tags) || tags.length === 0) {
+        return '<p class="theme-muted text-[11px]">Chưa có hashtag nào.</p>';
+    }
+
+    return tags.map((tag) => `
+        <span class="fb-hashtag-chip">
+            <span>${escapeHtmlFacebook(tag)}</span>
+            <button type="button" class="fb-hashtag-chip-remove" data-fb-hashtag-remove="${escapeHtmlFacebook(tag)}" ${canEdit ? '' : 'disabled'} aria-label="Xóa hashtag ${escapeHtmlFacebook(tag)}">×</button>
+        </span>
+    `).join('');
+}
+
+function renderFacebookChildRow(sectionId, settingKey, label, hint = '') {
+    const hintHtml = hint
+        ? `<p class="theme-muted mt-0.5 text-[10px] leading-snug">${escapeHtmlFacebook(hint)}</p>`
+        : '';
+    return `
+    <div class="fb-child-row flex items-start gap-4 rounded-xl px-2 py-2.5 sm:gap-5 sm:px-3 sm:py-3">
+        <button type="button" class="theme-switch mt-0.5 shrink-0" data-switch data-platform="facebook" data-setting="${escapeHtmlFacebook(settingKey)}" data-fb-parent="${escapeHtmlFacebook(sectionId)}" aria-pressed="false"><span class="theme-switch-thumb"></span></button>
+        <div class="min-w-0 pt-0.5">
+            <p class="theme-title text-[13px] leading-snug">${escapeHtmlFacebook(label)}</p>
+            ${hintHtml}
+        </div>
+    </div>`;
+}
+
+function renderFacebookSection(sectionId, masterKey, title, subtitle, children, extraBodyHtml = '', bodyClass = '') {
+    const subHtml = subtitle
+        ? `<p class="theme-muted mt-0.5 text-[12px] leading-relaxed">${escapeHtmlFacebook(subtitle)}</p>`
+        : '';
+    const childRows = children.map(([key, label, hint]) => renderFacebookChildRow(sectionId, key, label, hint)).join('');
+
+    return `
+    <div class="fb-section theme-dashed-panel overflow-hidden rounded-[18px] border-2 shadow-[0_14px_40px_rgba(15,23,42,0.05)]">
+        <div class="flex items-start justify-between gap-4 border-b border-[var(--theme-border)] bg-[var(--theme-soft-surface)] px-4 py-4 sm:gap-5 sm:px-6 sm:py-4">
+            <div class="flex min-w-0 flex-1 items-start gap-4 sm:gap-5">
+                <button type="button" class="theme-switch fb-master-switch mt-0.5 shrink-0" data-switch data-platform="facebook" data-setting="${escapeHtmlFacebook(masterKey)}" data-fb-master="${escapeHtmlFacebook(sectionId)}" aria-pressed="true"><span class="theme-switch-thumb"></span></button>
+                <div class="min-w-0">
+                    <p class="theme-title text-[15px] font-semibold leading-snug">${escapeHtmlFacebook(title)}</p>
+                    ${subHtml}
+                </div>
+            </div>
+            <button type="button" class="fb-section-toggle ml-1 shrink-0 rounded-xl p-2.5 text-[var(--theme-muted)] transition hover:bg-black/5 dark:hover:bg-white/10 sm:p-3" data-fb-collapse="${escapeHtmlFacebook(sectionId)}" aria-expanded="false" aria-label="Thu gọn hoặc mở rộng mục">
+                <svg class="fb-chevron h-5 w-5 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+        </div>
+        <div class="fb-section-body hidden space-y-3 p-5 sm:space-y-4 sm:p-6 ${bodyClass}" data-fb-panel="${escapeHtmlFacebook(sectionId)}">
+            ${childRows}
+            ${extraBodyHtml}
+        </div>
+    </div>`;
+}
+
+function mountFacebookInAppPanel() {
+    const root = document.getElementById('facebook-inapp-settings-root');
+    if (!root || root.dataset.mounted === 'true') {
+        return;
+    }
+    root.dataset.mounted = 'true';
+
+    const leftMenuChildren = [
+        ['hideLeftAdsManager', 'Ads Manager'],
+        ['hideLeftBrowse', 'Browse'],
+        ['hideLeftCampus', 'Campus'],
+        ['hideLeftCommunityHelp', 'Community Help'],
+        ['hideLeftCreate', 'Create / Create section'],
+        ['hideLeftCreatorStudio', 'Creator Studio'],
+        ['hideLeftEvents', 'Events'],
+        ['hideLeftFavorites', 'Favorites'],
+        ['hideLeftFriends', 'Friends'],
+        ['hideLeftFundraisers', 'Fundraisers'],
+        ['hideLeftGaming', 'Gaming'],
+        ['hideLeftGroups', 'Groups'],
+        ['hideLeftJobs', 'Jobs'],
+        ['hideLeftMarketplace', 'Marketplace'],
+        ['hideLeftMemories', 'Memories'],
+        ['hideLeftMessenger', 'Messenger'],
+        ['hideLeftMetaAI', 'Meta AI'],
+        ['hideLeftNews', 'News'],
+        ['hideLeftOffers', 'Offers'],
+        ['hideLeftOrderFood', 'Order Food'],
+        ['hideLeftPages', 'Pages'],
+        ['hideLeftReels', 'Reels'],
+        ['hideLeftSaved', 'Saved'],
+        ['hideLeftShops', 'Shops'],
+        ['hideLeftWatch', 'Watch'],
+        ['hideLeftWeather', 'Weather'],
+        ['hideLeftBloodDonations', 'Blood Donations'],
+        ['hideLeftClimateScience', 'Climate Science'],
+        ['hideLeftCrisisResponse', 'Crisis Response'],
+        ['hideLeftDating', 'Dating'],
+        ['hideLeftMovies', 'Movies'],
+        ['hideLeftMusic', 'Music'],
+        ['hideLeftMostRecent', 'Most Recent'],
+        ['hideLeftLiveVideos', 'Live Videos'],
+        ['hideLeftGameStreaming', 'Game streaming'],
+        ['hideLeftRecentActivity', 'Recent activity'],
+        ['hideLeftRecentAdActivity', 'Recent ad activity'],
+        ['hideLeftVotingInformation', 'Voting information'],
+        ['hideLeftLocal', 'Local'],
+        ['hideLeftAbout', 'About / help shortcuts'],
+    ].map(([k, label]) => [k, label, '']);
+
+    const sectionIInner = [
+        renderFacebookSubheading('Bảng tin'),
+        renderFacebookChildRow('sectionI', 'hideEntireNewsfeed', 'Ẩn toàn bộ Bảng tin', ''),
+        renderFacebookChildRow('sectionI', 'hideProfileInfoUpdates', 'Ẩn bài cập nhật thông tin cá nhân', ''),
+        renderFacebookChildRow('sectionI', 'hideProductsShown', 'Ẩn “Sản phẩm được hiển thị”', ''),
+        renderFacebookChildRow('sectionI', 'hideTrendingPosts', 'Ẩn Đang thịnh hành (bài / link / video)', ''),
+        renderFacebookSubheading('Link / Trang'),
+        renderFacebookChildRow('sectionI', 'hideLikedPagePost', 'Ẩn bài đã thích Trang', ''),
+        renderFacebookChildRow('sectionI', 'hideLikedLinkPost', 'Ẩn bài đã thích bài link', ''),
+        renderFacebookChildRow('sectionI', 'hideSharedLinkPost', 'Ẩn bài chia sẻ liên kết', ''),
+        renderFacebookChildRow('sectionI', 'hideCommentedLinkPost', 'Ẩn bài bình luận về liên kết', ''),
+        renderFacebookChildRow('sectionI', 'hideLikePageButtons', 'Ẩn các nút “Thích trang” trong feed', ''),
+        renderFacebookSubheading('Hình ảnh'),
+        renderFacebookChildRow('sectionI', 'hideAllPhotoPosts', 'Ẩn toàn bộ bài ảnh', ''),
+        renderFacebookChildRow('sectionI', 'hideSharedPhotoAlbum', 'Ẩn chia sẻ ảnh / album', ''),
+        renderFacebookChildRow('sectionI', 'hideProfilePictureCoverChange', 'Ẩn đổi ảnh đại diện / ảnh bìa', ''),
+        renderFacebookChildRow('sectionI', 'hideUploadedPhoto', 'Ẩn đã tải ảnh lên', ''),
+        renderFacebookChildRow('sectionI', 'hide3dPhoto', 'Ẩn ảnh 3D', ''),
+        renderFacebookChildRow('sectionI', 'hideLikedPhoto', 'Ẩn đã thích ảnh', ''),
+        renderFacebookChildRow('sectionI', 'hideCommentedOnPhoto', 'Ẩn đã bình luận ảnh', ''),
+        renderFacebookSubheading('Video'),
+        renderFacebookChildRow('sectionI', 'disableVideoAutoplayFacebook', 'Tắt tự động phát video', ''),
+        renderFacebookChildRow('sectionI', 'hideAllVideoPosts', 'Ẩn toàn bộ bài video', ''),
+        renderFacebookChildRow('sectionI', 'hideLiveVideoPosts', 'Ẩn video trực tiếp / was live', ''),
+        renderFacebookChildRow('sectionI', 'hideReelsShortVideo', 'Ẩn Reels / video ngắn', ''),
+        renderFacebookChildRow('sectionI', 'hideSharedVideo', 'Ẩn chia sẻ video', ''),
+        renderFacebookChildRow('sectionI', 'hideLikedVideo', 'Ẩn đã thích video', ''),
+        renderFacebookChildRow('sectionI', 'hideCommentedOnVideo', 'Ẩn đã bình luận video', ''),
+        renderFacebookSubheading('Hashtag'),
+        renderFacebookChildRow('sectionI', 'hideHashtagPosts', 'Ẩn post theo hashtag', ''),
+        `<div class="fb-hashtag-keywords-block mt-2 border-t border-[var(--theme-border)] pt-4" data-fb-hashtag-block>
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <p class="theme-title text-[12px] font-medium">Danh sách hashtag đang chặn</p>
+                <button type="button" id="fb-hashtag-open-popup" class="fb-hashtag-add-btn" data-fb-hashtag-open>+ THÊM HASHTAG</button>
+            </div>
+            <div id="fb-hashtag-list" class="fb-hashtag-list mt-3" data-fb-hashtag-list></div>
+            <p class="theme-muted mt-2 text-[10px] leading-snug">Nhấn nút thêm hashtag để mở popup nhập nhiều hashtag, mỗi dòng một hashtag.</p>
+            <div class="fb-hashtag-modal hidden" data-fb-hashtag-modal>
+                <div class="fb-hashtag-modal__backdrop" data-fb-hashtag-close></div>
+                <div class="fb-hashtag-modal__panel theme-surface theme-border">
+                    <div class="flex items-center justify-between gap-3 border-b border-[var(--theme-border)] px-4 py-3">
+                        <p class="theme-title text-[16px] font-semibold">Add hashtags</p>
+                        <button type="button" class="fb-hashtag-modal__close" data-fb-hashtag-close aria-label="Đóng popup">×</button>
+                    </div>
+                    <div class="px-4 py-4">
+                        <textarea id="fb-hashtag-popup-input" rows="6" class="theme-surface theme-border w-full resize-y rounded-xl border px-3 py-2 text-[13px] outline-none focus:border-[var(--theme-primary)]" placeholder="#study
+#focus"></textarea>
+                        <p class="theme-muted mt-2 text-[11px]">Mỗi dòng một hashtag. Có thể nhập có hoặc không có dấu #.</p>
+                        <div class="mt-4 flex justify-end gap-2">
+                            <button type="button" class="fb-hashtag-action-btn fb-hashtag-action-btn--ghost" data-fb-hashtag-close>CANCEL</button>
+                            <button type="button" class="fb-hashtag-action-btn" data-fb-hashtag-save>ADD HASHTAGS</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>`,
+    ].join('');
+
+    const textFilterExtra = `
+        <div class="fb-text-filter-keywords-block mt-2 border-t border-[var(--theme-border)] pt-4" data-fb-keywords-block>
+            <label for="fb-text-filter-keywords" class="theme-title mb-2 block text-[12px] font-medium">Danh sách từ khóa (mỗi dòng một từ hoặc cụm)</label>
+            <textarea id="fb-text-filter-keywords" rows="5" class="theme-surface theme-border w-full resize-y rounded-xl border px-3 py-2 text-[13px] outline-none focus:border-[var(--theme-primary)]" placeholder="ví dụ: giveaway"></textarea>
+        </div>`;
+    const allowByUrlExtra = `
+        ${renderFacebookChildRow('sectionIV', 'allowByUrlOnly', 'Allow theo URL Facebook (chỉ hiển thị bài từ URL đã khai báo)', '')}
+        <div class="fb-allow-url-block mt-2 border-t border-[var(--theme-border)] pt-4" data-fb-allow-url-block>
+            <label for="fb-allow-url-list" class="theme-title mb-2 block text-[12px] font-medium">Danh sách URL Facebook được phép (mỗi dòng một URL)</label>
+            <textarea id="fb-allow-url-list" rows="5" class="theme-surface theme-border w-full resize-y rounded-xl border px-3 py-2 text-[13px] outline-none focus:border-[var(--theme-primary)]" placeholder="https://www.facebook.com/groups/123456789
+https://www.facebook.com/somepage"></textarea>
+            <p class="theme-muted mt-1 text-[10px] leading-snug">Chỉ chấp nhận URL thuộc facebook.com. Khi bật, feed chỉ hiển thị bài từ group/page khớp danh sách.</p>
+        </div>`;
+
+    const sectionsHtml = [
+        renderFacebookSection(
+            'sectionI',
+            'masterSectionI',
+            'Lọc bài viết trên Bảng tin',
+            'Gồm bảng tin, link/trang, ảnh, video. Tắt mục lớn chỉ khoá các nút con, không đổi trạng thái bật/tắt đã lưu.',
+            [],
+            sectionIInner,
+        ),
+        renderFacebookSection(
+            'sectionII',
+            'masterSectionII',
+            'Chặn quảng cáo & nội dung đề xuất',
+            'Sponsored, gợi ý, quảng cáo Marketplace.',
+            [
+                ['hideSponsoredPosts', 'Ẩn bài Được tài trợ / Sponsored', ''],
+                ['hideSuggestedPosts', 'Ẩn bài đề xuất (Suggested)', 'Tách khỏi Sponsored khi nhận diện được.'],
+                ['hideMarketplaceAds', 'Ẩn quảng cáo Marketplace', ''],
+            ],
+        ),
+        renderFacebookSection(
+            'sectionIII',
+            'masterSectionIII',
+            'Bộ lọc văn bản',
+            'Từ khóa tự tạo từ nội dung văn bản bài viết.',
+            [],
+            textFilterExtra,
+        ),
+        renderFacebookSection(
+            'sectionIV',
+            'masterSectionIV',
+            'Allow by URL',
+            'Chỉ giữ lại bài viết từ các group/page Facebook trong danh sách cho phép.',
+            [],
+            allowByUrlExtra,
+        ),
+        renderFacebookSection(
+            'sectionVI',
+            'masterSectionVI',
+            'Ẩn cột phải',
+            'Ẩn toàn cột hoặc từng khối: games, marketplace, gợi ý, v.v.',
+            [
+                ['hideRightColumnAll', 'Ẩn toàn bộ cột phải', ''],
+                ['hideRightGameAppRequests', 'Ẩn Game / App requests', ''],
+                ['hideRightMarketplacePanel', 'Ẩn Marketplace (panel phải)', ''],
+                ['hideRightRecommendedPages', 'Ẩn Trang được đề xuất', ''],
+                ['hideRightTodaysGames', "Ẩn Today's games", ''],
+                ['hideRightSuggestedGroups', 'Ẩn Nhóm gợi ý', ''],
+                ['hideRightPokes', 'Ẩn Pokes', ''],
+                ['hideRightHappeningLive', 'Ẩn Happening now / Live', ''],
+                ['hideRightEvents', 'Ẩn Events', ''],
+                ['hideRightFriendRequests', 'Ẩn Lời mời kết bạn', ''],
+                ['hideRightYourPages', 'Ẩn Your pages', ''],
+                ['hideRightBirthdays', 'Ẩn Sinh nhật', ''],
+                ['hideRightWatch', 'Ẩn Watch (video)', ''],
+                ['hideRightSaved', 'Ẩn Saved / liên kết đã lưu', ''],
+                ['hideRightRelated', 'Ẩn mục Related / liên quan', ''],
+            ],
+        ),
+        renderFacebookSection(
+            'sectionVII',
+            'masterSectionVII',
+            'Ẩn cột trái / menu trái',
+            'Ẩn từng shortcut — danh sách có thể mở rộng thêm theo bản Facebook.',
+            leftMenuChildren,
+            '',
+            'max-h-96 overflow-y-auto overflow-x-hidden',
+        ),
+        renderFacebookSection(
+            'sectionIX',
+            'masterSectionIX',
+            'Tùy chọn top navigation bar',
+            'Cố định bar, nút thoát, ô tìm kiếm, và từng icon điều hướng.',
+            [
+                ['freezeTopNavBar', 'Cố định top bar khi cuộn (freeze)', ''],
+                ['showLogoutButton', 'Hiện nút Đăng xuất (nếu chèn được)', ''],
+                ['hideSearchBoxAndPopup', 'Ẩn ô tìm kiếm & popup / xu hướng', ''],
+                ['hideNavHome', 'Ẩn nút Home', ''],
+                ['hideNavPages', 'Ẩn Pages', ''],
+                ['hideNavReels', 'Ẩn Reels', ''],
+                ['hideNavMarketplace', 'Ẩn Marketplace', ''],
+                ['hideNavGroups', 'Ẩn Groups', ''],
+                ['hideNavGaming', 'Ẩn Gaming', ''],
+                ['hideNavCreate', 'Ẩn Create', ''],
+                ['hideNavMessenger', 'Ẩn Messenger', ''],
+                ['hideNavNotifications', 'Ẩn Notifications', ''],
+                ['hideNavNews', 'Ẩn News', ''],
+                ['hideNavEvents', 'Ẩn Events', ''],
+                ['hideNavFriendRequests', 'Ẩn Friend requests', ''],
+                ['hideNavAccountSwitcher', 'Ẩn chuyển tài khoản', ''],
+            ],
+        ),
+    ].join('');
+
+    root.innerHTML = `<div class="mt-6 space-y-5 sm:space-y-6">${sectionsHtml}</div>`;
+}
+
+/** Master toggles only enable/disable child controls in the UI; child on/off values in storage are never changed here. */
+function refreshFacebookSectionUi() {
+    const fb = currentSettings?.facebook || {};
+    document.querySelectorAll('[data-fb-master]').forEach((masterBtn) => {
+        const sectionId = masterBtn.dataset.fbMaster;
+        const masterKey = masterBtn.dataset.setting;
+        const sectionEnabled = fb[masterKey] !== false;
+
+        document.querySelectorAll(`[data-fb-parent="${sectionId}"]`).forEach((childBtn) => {
+            childBtn.disabled = !sectionEnabled;
+            childBtn.setAttribute('aria-disabled', String(!sectionEnabled));
+            const row = childBtn.closest('.fb-child-row');
+            if (row) {
+                row.classList.toggle('fb-child-row--locked', !sectionEnabled);
+            }
+        });
+
+        const panel = document.querySelector(`[data-fb-panel="${sectionId}"]`);
+        if (sectionId === 'sectionIII' && panel) {
+            const keywordsBlock = panel.querySelector('[data-fb-keywords-block]');
+            const ta = panel.querySelector('#fb-text-filter-keywords');
+            if (ta) {
+                ta.disabled = !sectionEnabled;
+            }
+            if (keywordsBlock) {
+                keywordsBlock.classList.toggle('fb-keywords-block--locked', !sectionEnabled);
+                if (sectionEnabled) {
+                    keywordsBlock.removeAttribute('inert');
+                } else {
+                    keywordsBlock.setAttribute('inert', '');
+                }
+            }
+        }
+        if (sectionId === 'sectionIV' && panel) {
+            const allowBlock = panel.querySelector('[data-fb-allow-url-block]');
+            const allowToggle = panel.querySelector('[data-setting="allowByUrlOnly"][data-fb-parent="sectionIV"]');
+            const ta = panel.querySelector('#fb-allow-url-list');
+            const allowEnabled = sectionEnabled && Boolean(fb.allowByUrlOnly);
+            if (ta) {
+                ta.disabled = !allowEnabled;
+            }
+            if (allowBlock) {
+                allowBlock.classList.toggle('fb-allow-url-block--locked', !allowEnabled);
+                if (allowEnabled) {
+                    allowBlock.removeAttribute('inert');
+                } else {
+                    allowBlock.setAttribute('inert', '');
+                }
+            }
+            if (allowToggle) {
+                allowToggle.setAttribute('aria-disabled', String(!sectionEnabled));
+            }
+        }
+
+        if (sectionId === 'sectionI' && panel) {
+            const hashtagBlock = panel.querySelector('[data-fb-hashtag-block]');
+            const hashtagToggle = panel.querySelector('[data-setting="hideHashtagPosts"][data-fb-parent="sectionI"]');
+            const hashtagOpenButton = panel.querySelector('[data-fb-hashtag-open]');
+            const hashtagRemoveButtons = panel.querySelectorAll('[data-fb-hashtag-remove]');
+            const hashtagEnabled = sectionEnabled && Boolean(fb.hideHashtagPosts);
+            if (hashtagOpenButton) {
+                hashtagOpenButton.disabled = !hashtagEnabled;
+            }
+            hashtagRemoveButtons.forEach((btn) => {
+                btn.disabled = !hashtagEnabled;
+                btn.setAttribute('aria-disabled', String(!hashtagEnabled));
+            });
+            if (!hashtagEnabled && hashtagBlock) {
+                const modal = hashtagBlock.querySelector('[data-fb-hashtag-modal]');
+                if (modal) {
+                    modal.classList.add('hidden');
+                }
+            }
+            if (hashtagBlock) {
+                hashtagBlock.classList.toggle('fb-hashtag-block--locked', !hashtagEnabled);
+                if (hashtagEnabled) {
+                    hashtagBlock.removeAttribute('inert');
+                } else {
+                    hashtagBlock.setAttribute('inert', '');
+                }
+            }
+            if (hashtagToggle) {
+                hashtagToggle.setAttribute('aria-disabled', String(!sectionEnabled));
+            }
+        }
+    });
+}
+
+function bindFacebookCollapseControls() {
+    document.querySelectorAll('[data-fb-collapse]').forEach((btn) => {
+        if (btn.dataset.bound === 'true') {
+            return;
+        }
+        btn.dataset.bound = 'true';
+        btn.addEventListener('click', () => {
+            const id = btn.getAttribute('data-fb-collapse');
+            const panel = document.querySelector(`[data-fb-panel="${id}"]`);
+            if (!panel) {
+                return;
+            }
+            const expanded = btn.getAttribute('aria-expanded') === 'true';
+            const nextExpanded = !expanded;
+            btn.setAttribute('aria-expanded', String(nextExpanded));
+            panel.classList.toggle('hidden', !nextExpanded);
+        });
+    });
+}
+
+function bindFacebookTextFilter() {
+    const ta = document.getElementById('fb-text-filter-keywords');
+    if (!ta || ta.dataset.bound === 'true') {
+        return;
+    }
+    ta.dataset.bound = 'true';
+
+    const persist = () => {
+        try {
+            chrome.storage.sync.get([STORAGE_KEY], (data) => {
+                if (chrome.runtime.lastError) {
+                    return;
+                }
+                const settings = mergeSettings(data[STORAGE_KEY]);
+                settings.facebook.textFilterKeywords = ta.value;
+                saveSettings(settings);
+                notifyTabs('facebook');
+            });
+        } catch (error) {
+            console.error('[DASHBOARD:FB_TEXT_FILTER]', error);
+        }
+    };
+
+    ta.addEventListener('change', persist);
+    ta.addEventListener('blur', persist);
+}
+
+function isFacebookUrlInput(raw) {
+    try {
+        const asUrl = new URL(raw.trim(), 'https://www.facebook.com');
+        return /(^|\.)facebook\.com$/i.test(asUrl.hostname);
+    } catch (error) {
+        return false;
+    }
+}
+
+function normalizeAllowUrlList(rawText) {
+    if (typeof rawText !== 'string') {
+        return '';
+    }
+    const uniq = new Set();
+    rawText.split(/\r?\n/).forEach((line) => {
+        const value = line.trim();
+        if (!value || !isFacebookUrlInput(value)) {
+            return;
+        }
+        const asUrl = new URL(value, 'https://www.facebook.com');
+        const normalized = `${asUrl.origin.toLowerCase()}${asUrl.pathname.replace(/\/+$/, '') || '/'}`;
+        uniq.add(normalized);
+    });
+    return Array.from(uniq).join('\n');
+}
+
+function bindFacebookAllowByUrl() {
+    const ta = document.getElementById('fb-allow-url-list');
+    if (!ta || ta.dataset.bound === 'true') {
+        return;
+    }
+    ta.dataset.bound = 'true';
+
+    const persist = () => {
+        try {
+            chrome.storage.sync.get([STORAGE_KEY], (data) => {
+                if (chrome.runtime.lastError) {
+                    return;
+                }
+                const settings = mergeSettings(data[STORAGE_KEY]);
+                const normalized = normalizeAllowUrlList(ta.value);
+                ta.value = normalized;
+                settings.facebook.allowByUrlList = normalized;
+                // #region agent log
+                fetch('http://127.0.0.1:7371/ingest/7634893a-f87f-456c-8e21-990ad9d66e04',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'71e079'},body:JSON.stringify({sessionId:'71e079',runId:'run2',hypothesisId:'H1',location:'dashboard.js:bindFacebookAllowByUrl.persist',message:'allow url list persisted',data:{normalized,normalizedCount:normalized?normalized.split(/\r?\n/).filter(Boolean).length:0,allowByUrlOnly:Boolean(settings.facebook.allowByUrlOnly)},timestamp:Date.now()})}).catch(()=>{});
+                // #endregion
+                saveSettings(settings);
+                notifyTabs('facebook');
+            });
+        } catch (error) {
+            console.error('[DASHBOARD:FB_ALLOW_BY_URL]', error);
+        }
+    };
+
+    ta.addEventListener('change', persist);
+    ta.addEventListener('blur', persist);
+}
+
+function bindFacebookHashtagFilter() {
+    const block = document.querySelector('[data-fb-hashtag-block]');
+    const openButton = block?.querySelector('[data-fb-hashtag-open]');
+    const listEl = block?.querySelector('[data-fb-hashtag-list]');
+    const modal = block?.querySelector('[data-fb-hashtag-modal]');
+    const popupInput = block?.querySelector('#fb-hashtag-popup-input');
+    const saveButton = block?.querySelector('[data-fb-hashtag-save]');
+    if (!block || !openButton || !listEl || !modal || !popupInput || !saveButton || block.dataset.bound === 'true') {
+        return;
+    }
+    block.dataset.bound = 'true';
+
+    const closeModal = () => {
+        modal.classList.add('hidden');
+    };
+    const openModal = () => {
+        if (openButton.disabled) {
+            return;
+        }
+        popupInput.value = '';
+        modal.classList.remove('hidden');
+        popupInput.focus();
+    };
+
+    const persistTags = (nextTags) => {
+        try {
+            chrome.storage.sync.get([STORAGE_KEY], (data) => {
+                if (chrome.runtime.lastError) {
+                    return;
+                }
+                const settings = mergeSettings(data[STORAGE_KEY]);
+                settings.facebook.hashtagFilterKeywords = serializeHashtagKeywords(nextTags);
+                saveSettings(settings);
+                notifyTabs('facebook');
+                currentSettings = mergeSettings(settings);
+                const canEdit = Boolean(currentSettings?.facebook?.masterSectionI !== false)
+                    && Boolean(currentSettings?.facebook?.hideHashtagPosts);
+                listEl.innerHTML = renderHashtagChips(nextTags, canEdit);
+                refreshFacebookSectionUi();
+            });
+        } catch (error) {
+            console.error('[DASHBOARD:FB_HASHTAG_FILTER]', error);
+        }
+    };
+
+    openButton.addEventListener('click', openModal);
+    modal.querySelectorAll('[data-fb-hashtag-close]').forEach((btn) => {
+        btn.addEventListener('click', closeModal);
+    });
+    saveButton.addEventListener('click', () => {
+        const currentTags = parseHashtagKeywords(currentSettings?.facebook?.hashtagFilterKeywords || '');
+        const incomingTags = parseHashtagKeywords(popupInput.value);
+        const merged = Array.from(new Set([...currentTags, ...incomingTags]));
+        persistTags(merged);
+        closeModal();
+    });
+
+    listEl.addEventListener('click', (event) => {
+        const target = event.target instanceof Element ? event.target.closest('[data-fb-hashtag-remove]') : null;
+        if (!(target instanceof HTMLButtonElement) || target.disabled) {
+            return;
+        }
+        const tagToRemove = target.getAttribute('data-fb-hashtag-remove') || '';
+        if (!tagToRemove) {
+            return;
+        }
+        const nextTags = parseHashtagKeywords(currentSettings?.facebook?.hashtagFilterKeywords || '')
+            .filter((tag) => tag !== tagToRemove);
+        persistTags(nextTags);
+    });
 }
 
 function setSwitchVisualState(switchButton, isOn) {
@@ -221,18 +968,40 @@ function renderHideSwitchLockState() {
 function applyStoredSettings(settings) {
     currentSettings = mergeSettings(settings);
 
-    switches.forEach((switchButton) => {
+    document.querySelectorAll('[data-switch]').forEach((switchButton) => {
         const { platform, setting } = switchButton.dataset;
+        if (!platform || !setting) {
+            return;
+        }
         const isOn = Boolean(currentSettings?.[platform]?.[setting]);
         setSwitchVisualState(switchButton, isOn);
     });
 
+    const fbKeywords = document.getElementById('fb-text-filter-keywords');
+    if (fbKeywords) {
+        fbKeywords.value = currentSettings?.facebook?.textFilterKeywords || '';
+    }
+    const fbHashtagList = document.getElementById('fb-hashtag-list');
+    if (fbHashtagList) {
+        const tags = parseHashtagKeywords(currentSettings?.facebook?.hashtagFilterKeywords || '');
+        const canEdit = Boolean(currentSettings?.facebook?.masterSectionI !== false)
+            && Boolean(currentSettings?.facebook?.hideHashtagPosts);
+        fbHashtagList.innerHTML = renderHashtagChips(tags, canEdit);
+    }
+    const fbAllowUrlList = document.getElementById('fb-allow-url-list');
+    if (fbAllowUrlList) {
+        fbAllowUrlList.value = currentSettings?.facebook?.allowByUrlList || '';
+    }
+
     syncOpeningTimerUI(currentSettings);
+    refreshFacebookSectionUi();
 }
 
 function saveSettings(settings = currentSettings) {
     try {
-        chrome.storage.sync.set({ [STORAGE_KEY]: settings });
+        const sanitizedSettings = sanitizeSettingsForStorage(settings);
+        currentSettings = sanitizedSettings;
+        chrome.storage.sync.set({ [STORAGE_KEY]: sanitizedSettings });
     } catch (error) {
         console.error('[DASHBOARD:SAVE_SETTINGS]', error);
     }
@@ -830,8 +1599,16 @@ inAppBackButtons.forEach((button) => {
     });
 });
 
-switches.forEach((switchButton) => {
+function bindInAppSwitch(switchButton) {
+    if (!switchButton || switchButton.dataset.bound === 'true') {
+        return;
+    }
+
+    switchButton.dataset.bound = 'true';
     switchButton.addEventListener('click', () => {
+        if (switchButton.disabled) {
+            return;
+        }
         const { platform, setting } = switchButton.dataset;
 
         try {
@@ -844,15 +1621,33 @@ switches.forEach((switchButton) => {
                 const settings = mergeSettings(data[STORAGE_KEY]);
                 const nextValue = !settings?.[platform]?.[setting];
                 settings[platform][setting] = nextValue;
+                if (platform === 'facebook' && setting === 'allowByUrlOnly') {
+                    // #region agent log
+                    fetch('http://127.0.0.1:7371/ingest/7634893a-f87f-456c-8e21-990ad9d66e04',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'71e079'},body:JSON.stringify({sessionId:'71e079',runId:'run2',hypothesisId:'H1',location:'dashboard.js:bindInAppSwitch',message:'allowByUrlOnly toggled',data:{nextValue,allowByUrlList:(settings.facebook.allowByUrlList||'').slice(0,200)},timestamp:Date.now()})}).catch(()=>{});
+                    // #endregion
+                }
                 setSwitchVisualState(switchButton, nextValue);
                 saveSettings(settings);
                 notifyTabs(platform);
+                if (platform === 'facebook') {
+                    // #region agent log
+                    fetch('http://127.0.0.1:7371/ingest/7634893a-f87f-456c-8e21-990ad9d66e04', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '5f42da' }, body: JSON.stringify({ sessionId: '5f42da', hypothesisId: 'H2_toggle_save', location: 'dashboard.js:bindInAppSwitch', message: 'facebook toggle', data: { setting, nextValue, masterSectionI: settings.facebook?.masterSectionI, masterSectionII: settings.facebook?.masterSectionII, masterAdsContent: settings.facebook?.masterAdsContent }, timestamp: Date.now() }) }).catch(() => {});
+                    // #endregion
+                    refreshFacebookSectionUi();
+                }
             });
         } catch (error) {
             console.error('[DASHBOARD:TOGGLE_SWITCH]', error);
         }
     });
-});
+}
+
+mountFacebookInAppPanel();
+bindFacebookCollapseControls();
+bindFacebookTextFilter();
+bindFacebookHashtagFilter();
+bindFacebookAllowByUrl();
+document.querySelectorAll('[data-switch]').forEach(bindInAppSwitch);
 
 window.addEventListener('hashchange', () => {
     renderRoute(parseHashRoute());
@@ -868,6 +1663,10 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
     if (changes.isExtensionActive) {
         isExtensionGloballyActive = changes.isExtensionActive.newValue !== false;
         updateGlobalActiveToggleVisual(isExtensionGloballyActive);
+    }
+
+    if (changes[STORAGE_KEY]) {
+        loadSettings();
     }
 
     if (changes.siteTimers) {

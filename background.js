@@ -24,12 +24,7 @@ chrome.runtime.onInstalled.addListener(() => {
                         openingTimerValue: 0,
                         openingTimerUnit: 'seconds',
                     },
-                    facebook: {
-                        hideStories: false,
-                        hideReels: true,
-                        hideMarketplace: false,
-                        blackWhiteMode: false,
-                    },
+                    facebook: {},
                 },
             });
         }

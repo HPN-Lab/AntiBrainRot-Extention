@@ -356,6 +356,22 @@ button.theme-switch:disabled {
     user-select: none;
 }
 
+.fb-allow-keywords-block.fb-allow-keywords-block--locked {
+    opacity: 0.48;
+    pointer-events: none;
+    user-select: none;
+}
+
+.fb-allow-url-chip {
+    max-width: 100%;
+}
+
+.fb-allow-url-chip__text {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    max-width: min(520px, 100%);
+}
+
 .fb-hashtag-add-btn {
     border: 1px solid var(--theme-primary-border);
     background: var(--theme-primary-soft);

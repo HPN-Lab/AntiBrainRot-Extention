@@ -38,6 +38,20 @@ chrome.runtime.onInstalled.addListener(() => {
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message?.type === 'sf-debug-ingest') {
+        const url = message.endpoint;
+        const body = message.body;
+        if (typeof url === 'string' && body && typeof body === 'object') {
+            const headers = { 'Content-Type': 'application/json' };
+            const sid = body.sessionId;
+            if (sid !== undefined && sid !== null && sid !== '') {
+                headers['X-Debug-Session-Id'] = String(sid);
+            }
+            fetch(url, { method: 'POST', headers, body: JSON.stringify(body) }).catch(() => {});
+        }
+        return false;
+    }
+
     if (message?.type !== 'checkURL') {
         return false;
     }

@@ -12,6 +12,9 @@
     "notifications",
     "activeTab"
   ],
+  "host_permissions": [
+    "http://127.0.0.1:7371/*"
+  ],
   "optional_permissions": [
     "topSites",
     "notifications"

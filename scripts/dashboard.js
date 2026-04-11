@@ -1,9 +1,5 @@
 'use strict';
 
-// #region agent log
-fetch('http://127.0.0.1:7371/ingest/7634893a-f87f-456c-8e21-990ad9d66e04',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'71e079'},body:JSON.stringify({sessionId:'71e079',runId:'run3',hypothesisId:'H0',location:'dashboard.js:bootstrap',message:'dashboard script loaded',data:{href:location.href},timestamp:Date.now()})}).catch(()=>{});
-// #endregion
-
 const tabs = Array.from(document.querySelectorAll('.dashboard-tab'));
 const panels = Array.from(document.querySelectorAll('.dashboard-panel'));
 const inAppViews = Array.from(document.querySelectorAll('[data-inapp-view]'));
@@ -26,7 +22,6 @@ function createDefaultFacebookSettings() {
     const masters = [
         'masterSectionI',
         'masterSectionII',
-        'masterSectionIII',
         'masterSectionIV',
         'masterSectionVI',
         'masterSectionVII',
@@ -58,7 +53,6 @@ function createDefaultFacebookSettings() {
         'hide3dPhoto',
         'hideLikedPhoto',
         'hideCommentedOnPhoto',
-        'disableVideoAutoplayFacebook',
         'hideAllVideoPosts',
         'hideLiveVideoPosts',
         'hideReelsShortVideo',
@@ -72,26 +66,11 @@ function createDefaultFacebookSettings() {
         'hideSuggestedPosts',
         'hideMarketplaceAds',
         'hideRightColumnAll',
-        'hideRightGameAppRequests',
-        'hideRightMarketplacePanel',
-        'hideRightRecommendedPages',
-        'hideRightTodaysGames',
-        'hideRightSuggestedGroups',
-        'hideRightPokes',
         'hideRightHappeningLive',
         'hideRightEvents',
         'hideRightFriendRequests',
-        'hideRightYourPages',
         'hideRightBirthdays',
-        'hideRightWatch',
-        'hideRightSaved',
-        'hideRightRelated',
-        'hideLeftAdsManager',
-        'hideLeftBrowse',
-        'hideLeftCampus',
-        'hideLeftCommunityHelp',
         'hideLeftCreate',
-        'hideLeftCreatorStudio',
         'hideLeftEvents',
         'hideLeftFavorites',
         'hideLeftFriends',
@@ -126,8 +105,6 @@ function createDefaultFacebookSettings() {
         'hideLeftVotingInformation',
         'hideLeftLocal',
         'hideLeftAbout',
-        'freezeTopNavBar',
-        'showLogoutButton',
         'hideSearchBoxAndPopup',
         'hideNavHome',
         'hideNavPages',
@@ -140,8 +117,6 @@ function createDefaultFacebookSettings() {
         'hideNavNotifications',
         'hideNavNews',
         'hideNavEvents',
-        'hideNavFriendRequests',
-        'hideNavAccountSwitcher',
     ];
     restFalse.forEach((k) => {
         fb[k] = false;
@@ -261,9 +236,6 @@ function migrateFacebookRomanSectionMasters(fb, storedFbRaw = {}) {
     if (!Object.prototype.hasOwnProperty.call(storedFbRaw, 'masterSectionIX') && fb.masterTopNav !== undefined) {
         out.masterSectionIX = fb.masterTopNav !== false;
     }
-    // #region agent log
-    fetch('http://127.0.0.1:7371/ingest/7634893a-f87f-456c-8e21-990ad9d66e04', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '5f42da' }, body: JSON.stringify({ sessionId: '5f42da', hypothesisId: 'H1_post_fix', runId: 'post-fix', location: 'dashboard.js:migrateFacebookRomanSectionMasters', message: 'migration result', data: { storedHasII: Object.prototype.hasOwnProperty.call(storedFbRaw, 'masterSectionII'), masterSectionII_in: fb.masterSectionII, masterSectionII_out: out.masterSectionII, masterAdsContent: fb.masterAdsContent, skippedAdsMap: Object.prototype.hasOwnProperty.call(storedFbRaw, 'masterSectionII') }, timestamp: Date.now() }) }).catch(() => {});
-    // #endregion
     return out;
 }
 
@@ -304,7 +276,6 @@ const FACEBOOK_SECTION_BULK_CHILD_KEYS = {
         'hide3dPhoto',
         'hideLikedPhoto',
         'hideCommentedOnPhoto',
-        'disableVideoAutoplayFacebook',
         'hideAllVideoPosts',
         'hideLiveVideoPosts',
         'hideReelsShortVideo',
@@ -314,32 +285,16 @@ const FACEBOOK_SECTION_BULK_CHILD_KEYS = {
         'hideHashtagPosts',
     ],
     sectionII: ['hideSponsoredPosts', 'hideSuggestedPosts', 'hideMarketplaceAds'],
-    sectionIII: [],
     sectionIV: ['allowByUrlOnly', 'allowPostKeywordsOnly'],
     sectionVI: [
         'hideRightColumnAll',
-        'hideRightGameAppRequests',
-        'hideRightMarketplacePanel',
-        'hideRightRecommendedPages',
-        'hideRightTodaysGames',
-        'hideRightSuggestedGroups',
-        'hideRightPokes',
         'hideRightHappeningLive',
         'hideRightEvents',
         'hideRightFriendRequests',
-        'hideRightYourPages',
         'hideRightBirthdays',
-        'hideRightWatch',
-        'hideRightSaved',
-        'hideRightRelated',
     ],
     sectionVII: [
-        'hideLeftAdsManager',
-        'hideLeftBrowse',
-        'hideLeftCampus',
-        'hideLeftCommunityHelp',
         'hideLeftCreate',
-        'hideLeftCreatorStudio',
         'hideLeftEvents',
         'hideLeftFavorites',
         'hideLeftFriends',
@@ -376,8 +331,6 @@ const FACEBOOK_SECTION_BULK_CHILD_KEYS = {
         'hideLeftAbout',
     ],
     sectionIX: [
-        'freezeTopNavBar',
-        'showLogoutButton',
         'hideSearchBoxAndPopup',
         'hideNavHome',
         'hideNavPages',
@@ -390,8 +343,6 @@ const FACEBOOK_SECTION_BULK_CHILD_KEYS = {
         'hideNavNotifications',
         'hideNavNews',
         'hideNavEvents',
-        'hideNavFriendRequests',
-        'hideNavAccountSwitcher',
     ],
 };
 
@@ -438,24 +389,6 @@ function serializeHashtagKeywords(tags) {
     return Array.isArray(tags) ? tags.join('\n') : '';
 }
 
-/** Khớp `parseUserTextKeywords` trong undistracted-facebook.js (xuống dòng hoặc dấu phẩy). */
-function parseTextFilterKeywords(raw) {
-    if (typeof raw !== 'string' || !raw.trim()) {
-        return [];
-    }
-    const unique = new Set();
-    raw
-        .split(/\r?\n|,/)
-        .map((word) => word.trim().toLowerCase())
-        .filter(Boolean)
-        .forEach((word) => unique.add(word));
-    return Array.from(unique);
-}
-
-function serializeTextFilterKeywords(phrases) {
-    return Array.isArray(phrases) ? phrases.join('\n') : '';
-}
-
 /** Khớp `parseAllowPostKeywordsList` trong undistracted-facebook.js (mỗi dòng một cụm, chữ thường). */
 function parseAllowPostKeywordsPhrases(raw) {
     if (typeof raw !== 'string' || !raw.trim()) {
@@ -487,19 +420,6 @@ function mergeAllowPostKeywordPhrases(current, incoming) {
         }
     });
     return out;
-}
-
-function renderTextFilterChips(phrases, canEdit) {
-    if (!Array.isArray(phrases) || phrases.length === 0) {
-        return '<p class="theme-muted text-[11px]">Chưa có từ khóa nào.</p>';
-    }
-
-    return phrases.map((phrase) => `
-        <span class="fb-hashtag-chip">
-            <span>${escapeHtmlFacebook(phrase)}</span>
-            <button type="button" class="fb-hashtag-chip-remove" data-fb-text-filter-remove="${escapeHtmlFacebook(phrase)}" ${canEdit ? '' : 'disabled'} aria-label="Xóa từ khóa ${escapeHtmlFacebook(phrase)}">×</button>
-        </span>
-    `).join('');
 }
 
 function renderHashtagChips(tags, canEdit) {
@@ -579,19 +499,19 @@ function renderFacebookSection(sectionId, masterKey, title, subtitle, children, 
 
     return `
     <div class="fb-section theme-dashed-panel overflow-hidden rounded-[18px] border-2 shadow-[0_14px_40px_rgba(15,23,42,0.05)]">
-        <div class="flex items-start justify-between gap-4 border-b border-[var(--theme-border)] bg-[var(--theme-soft-surface)] px-4 py-4 sm:gap-5 sm:px-6 sm:py-4">
-            <div class="flex min-w-0 flex-1 items-start gap-4 sm:gap-5">
+        <div class="fb-section-header flex cursor-pointer items-start justify-between gap-4 border-b border-[var(--theme-border)] bg-[var(--theme-soft-surface)] px-4 py-4 transition-colors hover:bg-black/[0.04] dark:hover:bg-white/[0.06] sm:gap-5 sm:px-6 sm:py-4" data-fb-section-header="${escapeHtmlFacebook(sectionId)}" role="button" tabindex="0" aria-expanded="false" aria-controls="fb-panel-${escapeHtmlFacebook(sectionId)}">
+            <div class="flex min-w-0 flex-1 select-text items-start gap-4 sm:gap-5">
                 <button type="button" class="theme-switch fb-master-switch mt-0.5 shrink-0" data-switch data-platform="facebook" data-setting="${escapeHtmlFacebook(masterKey)}" data-fb-master="${escapeHtmlFacebook(sectionId)}" aria-pressed="true"><span class="theme-switch-thumb"></span></button>
                 <div class="min-w-0">
                     <p class="theme-title text-[15px] font-semibold leading-snug">${escapeHtmlFacebook(title)}</p>
                     ${subHtml}
                 </div>
             </div>
-            <button type="button" class="fb-section-toggle ml-1 shrink-0 rounded-xl p-2.5 text-[var(--theme-muted)] transition hover:bg-black/5 dark:hover:bg-white/10 sm:p-3" data-fb-collapse="${escapeHtmlFacebook(sectionId)}" aria-expanded="false" aria-label="Thu gọn hoặc mở rộng mục">
+            <span class="fb-section-toggle ml-1 inline-flex shrink-0 rounded-xl p-2.5 text-[var(--theme-muted)] sm:p-3" data-fb-collapse="${escapeHtmlFacebook(sectionId)}" aria-hidden="true">
                 <svg class="fb-chevron h-5 w-5 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
-            </button>
+            </span>
         </div>
-        <div class="fb-section-body hidden space-y-3 p-5 sm:space-y-4 sm:p-6 ${bodyClass}" data-fb-panel="${escapeHtmlFacebook(sectionId)}">
+        <div id="fb-panel-${escapeHtmlFacebook(sectionId)}" class="fb-section-body hidden space-y-3 p-5 sm:space-y-4 sm:p-6 ${bodyClass}" data-fb-panel="${escapeHtmlFacebook(sectionId)}">
             ${bulkRow}
             ${childRows}
             ${extraBodyHtml}
@@ -607,12 +527,7 @@ function mountFacebookInAppPanel() {
     root.dataset.mounted = 'true';
 
     const leftMenuChildren = [
-        ['hideLeftAdsManager', 'Ads Manager'],
-        ['hideLeftBrowse', 'Browse'],
-        ['hideLeftCampus', 'Campus'],
-        ['hideLeftCommunityHelp', 'Community Help'],
         ['hideLeftCreate', 'Create / Create section'],
-        ['hideLeftCreatorStudio', 'Creator Studio'],
         ['hideLeftEvents', 'Events'],
         ['hideLeftFavorites', 'Favorites'],
         ['hideLeftFriends', 'Friends'],
@@ -670,7 +585,6 @@ function mountFacebookInAppPanel() {
         renderFacebookChildRow('sectionI', 'hideLikedPhoto', 'Ẩn đã thích ảnh', ''),
         renderFacebookChildRow('sectionI', 'hideCommentedOnPhoto', 'Ẩn đã bình luận ảnh', ''),
         renderFacebookSubheading('Video'),
-        renderFacebookChildRow('sectionI', 'disableVideoAutoplayFacebook', 'Tắt tự động phát video', ''),
         renderFacebookChildRow('sectionI', 'hideAllVideoPosts', 'Ẩn toàn bộ bài video', ''),
         renderFacebookChildRow('sectionI', 'hideLiveVideoPosts', 'Ẩn video trực tiếp / was live', ''),
         renderFacebookChildRow('sectionI', 'hideReelsShortVideo', 'Ẩn Reels / video ngắn', ''),
@@ -682,7 +596,10 @@ function mountFacebookInAppPanel() {
         `<div class="fb-hashtag-keywords-block mt-2 border-t border-[var(--theme-border)] pt-4" data-fb-hashtag-block>
             <div class="flex flex-wrap items-center justify-between gap-2">
                 <p class="theme-title text-[12px] font-medium">Danh sách hashtag đang chặn</p>
-                <button type="button" id="fb-hashtag-open-popup" class="fb-hashtag-add-btn" data-fb-hashtag-open>+ THÊM HASHTAG</button>
+                <div class="flex flex-wrap items-center gap-2">
+                    <button type="button" id="fb-hashtag-open-popup" class="fb-hashtag-add-btn" data-fb-hashtag-open>+ THÊM HASHTAG</button>
+                    <button type="button" class="fb-list-clear-all-btn" data-fb-hashtag-clear-all aria-label="Xóa hết danh sách hashtag">Xóa hết</button>
+                </div>
             </div>
             <div id="fb-hashtag-list" class="fb-hashtag-list mt-3" data-fb-hashtag-list></div>
             <p class="theme-muted mt-2 text-[10px] leading-snug">Mỗi dòng một mục (có hoặc không dấu #). Ví dụ <code class="text-[10px]">vinfast</code> sẽ ẩn mọi bài có từ đó trong chữ, không chỉ hashtag. Nhấn «Thêm hashtag» để nhập hàng loạt.</p>
@@ -690,7 +607,7 @@ function mountFacebookInAppPanel() {
                 <div class="fb-hashtag-modal__backdrop" data-fb-hashtag-close></div>
                 <div class="fb-hashtag-modal__panel theme-surface theme-border">
                     <div class="flex items-center justify-between gap-3 border-b border-[var(--theme-border)] px-4 py-3">
-                        <p class="theme-title text-[16px] font-semibold">Add hashtags</p>
+                        <p class="theme-title text-[16px] font-semibold">Thêm hashtag</p>
                         <button type="button" class="fb-hashtag-modal__close" data-fb-hashtag-close aria-label="Đóng popup">×</button>
                     </div>
                     <div class="px-4 py-4">
@@ -698,8 +615,8 @@ function mountFacebookInAppPanel() {
 #focus"></textarea>
                         <p class="theme-muted mt-2 text-[11px]">Mỗi dòng một hashtag. Có thể nhập có hoặc không có dấu #.</p>
                         <div class="mt-4 flex justify-end gap-2">
-                            <button type="button" class="fb-hashtag-action-btn fb-hashtag-action-btn--ghost" data-fb-hashtag-close>CANCEL</button>
-                            <button type="button" class="fb-hashtag-action-btn" data-fb-hashtag-save>ADD HASHTAGS</button>
+                            <button type="button" class="fb-hashtag-action-btn fb-hashtag-action-btn--ghost" data-fb-hashtag-close>Hủy</button>
+                            <button type="button" class="fb-hashtag-action-btn" data-fb-hashtag-save>Thêm</button>
                         </div>
                     </div>
                 </div>
@@ -707,42 +624,18 @@ function mountFacebookInAppPanel() {
         </div>`,
     ].join('');
 
-    const textFilterExtra = `
-        <div class="fb-text-filter-keywords-block mt-2 border-t border-[var(--theme-border)] pt-4" data-fb-keywords-block data-fb-text-filter-block>
-            <div class="flex flex-wrap items-center justify-between gap-2">
-                <p class="theme-title text-[12px] font-medium">Danh sách từ khóa đang lọc</p>
-                <button type="button" class="fb-hashtag-add-btn" data-fb-text-filter-open>+ THÊM TỪ KHÓA</button>
-            </div>
-            <div id="fb-text-filter-list" class="fb-hashtag-list mt-3" data-fb-text-filter-list></div>
-            <p class="theme-muted mt-2 text-[10px] leading-snug">Ẩn bài có chứa bất kỳ từ/cụm sau trong nội dung chữ (không phân biệt hoa thường). Nhấn «Thêm từ khóa» để nhập nhiều mục: mỗi dòng một từ/cụm, hoặc cách nhau bằng dấu phẩy.</p>
-            <div class="fb-hashtag-modal hidden" data-fb-text-filter-modal>
-                <div class="fb-hashtag-modal__backdrop" data-fb-text-filter-close></div>
-                <div class="fb-hashtag-modal__panel theme-surface theme-border">
-                    <div class="flex items-center justify-between gap-3 border-b border-[var(--theme-border)] px-4 py-3">
-                        <p class="theme-title text-[16px] font-semibold">Thêm từ khóa</p>
-                        <button type="button" class="fb-hashtag-modal__close" data-fb-text-filter-close aria-label="Đóng popup">×</button>
-                    </div>
-                    <div class="px-4 py-4">
-                        <textarea id="fb-text-filter-popup-input" rows="6" class="theme-surface theme-border w-full resize-y rounded-xl border px-3 py-2 text-[13px] outline-none focus:border-[var(--theme-primary)]" placeholder="giveaway
-quảng cáo, spam"></textarea>
-                        <p class="theme-muted mt-2 text-[11px]">Mỗi dòng một mục, hoặc cùng dòng cách nhau bằng dấu phẩy (giống bộ lọc trên Facebook).</p>
-                        <div class="mt-4 flex justify-end gap-2">
-                            <button type="button" class="fb-hashtag-action-btn fb-hashtag-action-btn--ghost" data-fb-text-filter-close>Hủy</button>
-                            <button type="button" class="fb-hashtag-action-btn" data-fb-text-filter-save>Thêm</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>`;
     const allowByUrlExtra = `
-        ${renderFacebookChildRow('sectionIV', 'allowByUrlOnly', 'Allow theo URL Facebook (chỉ hiển thị bài từ URL đã khai báo)', '')}
+        ${renderFacebookChildRow('sectionIV', 'allowByUrlOnly', 'Lọc theo URL Facebook (chỉ hiển thị bài từ URL đã khai báo)', '')}
         <div class="fb-allow-url-block mt-2 border-t border-[var(--theme-border)] pt-4" data-fb-allow-url-block data-fb-allow-url-chip-root>
             <div class="flex flex-wrap items-center justify-between gap-2">
                 <p class="theme-title text-[12px] font-medium">Danh sách URL Facebook được phép</p>
-                <button type="button" class="fb-hashtag-add-btn" data-fb-allow-url-open>+ THÊM URL</button>
+                <div class="flex flex-wrap items-center gap-2">
+                    <button type="button" class="fb-hashtag-add-btn" data-fb-allow-url-open>+ THÊM URL</button>
+                    <button type="button" class="fb-list-clear-all-btn" data-fb-allow-url-clear-all aria-label="Xóa hết danh sách URL">Xóa hết</button>
+                </div>
             </div>
             <div id="fb-allow-url-list" class="fb-hashtag-list mt-3" data-fb-allow-url-list></div>
-            <p class="theme-muted mt-2 text-[10px] leading-snug">Thêm URL trang, nhóm hoặc profile nguồn đăng (ví dụ link nhóm hoặc trang Page), không dùng link permalink từng bài. Extension chỉ lấy link tên trang/nhóm ở đầu bài (profile_name / tiêu đề), không quét link trong thân bài. Chỉ facebook.com; khớp từ DOM đã render. Nhấn «Thêm URL» để nhập nhiều dòng.</p>
+            <p class="theme-muted mt-2 text-[10px] leading-snug">Thêm URL trang, nhóm hoặc profile nguồn đăng (ví dụ link nhóm hoặc trang Page), không dùng link permalink từng bài. Extension chỉ lấy link tên trang/nhóm ở đầu bài (profile_name / tiêu đề), không quét link trong thân bài. Chỉ facebook.com; khớp từ DOM đã render. Nhấn «Thêm URL» để nhập nhiều dòng. Nếu bật thêm lọc theo từ khóa (cả hai có danh sách), bài chỉ cần khớp URL hoặc khớp cụm.</p>
             <div class="fb-hashtag-modal hidden" data-fb-allow-url-modal>
                 <div class="fb-hashtag-modal__backdrop" data-fb-allow-url-close></div>
                 <div class="fb-hashtag-modal__panel theme-surface theme-border">
@@ -762,14 +655,17 @@ https://www.facebook.com/somepage"></textarea>
                 </div>
             </div>
         </div>
-        ${renderFacebookChildRow('sectionIV', 'allowPostKeywordsOnly', 'Allow theo từ khóa (chỉ hiển thị bài có ít nhất một cụm trong danh sách)', '')}
+        ${renderFacebookChildRow('sectionIV', 'allowPostKeywordsOnly', 'Lọc theo từ khóa (chỉ hiển thị bài có ít nhất một cụm trong danh sách)', '')}
         <div class="fb-allow-keywords-block mt-2 border-t border-[var(--theme-border)] pt-4" data-fb-allow-keywords-block data-fb-allow-kw-chip-root>
             <div class="flex flex-wrap items-center justify-between gap-2">
                 <p class="theme-title text-[12px] font-medium">Danh sách từ / cụm được phép</p>
-                <button type="button" class="fb-hashtag-add-btn" data-fb-allow-kw-open>+ THÊM CỤM</button>
+                <div class="flex flex-wrap items-center gap-2">
+                    <button type="button" class="fb-hashtag-add-btn" data-fb-allow-kw-open>+ THÊM CỤM</button>
+                    <button type="button" class="fb-list-clear-all-btn" data-fb-allow-kw-clear-all aria-label="Xóa hết danh sách cụm được phép">Xóa hết</button>
+                </div>
             </div>
             <div id="fb-allow-keywords-list" class="fb-hashtag-list mt-3" data-fb-allow-kw-list></div>
-            <p class="theme-muted mt-2 text-[10px] leading-snug">So khớp không phân biệt hoa thường, tìm chuỗi con trong nội dung bài (tiêu đề + phần chữ). Nếu bật cả Allow URL và Allow từ khóa, bài phải thỏa cả hai. Nhấn «Thêm cụm» để nhập nhiều dòng (mỗi dòng một cụm).</p>
+            <p class="theme-muted mt-2 text-[10px] leading-snug">So khớp không phân biệt hoa thường, tìm chuỗi con trong nội dung bài (tiêu đề + phần chữ). Nếu bật cả lọc URL và lọc từ khóa (và cả hai đều có danh sách), bài được giữ nếu khớp URL hoặc khớp cụm (một trong hai là đủ). Nhấn «Thêm cụm» để nhập nhiều dòng (mỗi dòng một cụm).</p>
             <div class="fb-hashtag-modal hidden" data-fb-allow-kw-modal>
                 <div class="fb-hashtag-modal__backdrop" data-fb-allow-kw-close></div>
                 <div class="fb-hashtag-modal__panel theme-surface theme-border">
@@ -811,18 +707,10 @@ họp lớp"></textarea>
             ],
         ),
         renderFacebookSection(
-            'sectionIII',
-            'masterSectionIII',
-            'Bộ lọc văn bản',
-            'Từ khóa tự tạo từ nội dung văn bản bài viết.',
-            [],
-            textFilterExtra,
-        ),
-        renderFacebookSection(
             'sectionIV',
             'masterSectionIV',
-            'Allow (URL & từ khóa)',
-            'Chỉ giữ bài khớp URL và/hoặc chứa từ khóa cho phép (cấu hình bên dưới).',
+            'Bộ lọc (URL và từ khóa)',
+            'Chỉ hiển thị bài khớp URL và/hoặc chứa cụm từ trong danh sách (bật từng tùy chọn bên dưới).',
             [],
             allowByUrlExtra,
         ),
@@ -830,23 +718,13 @@ họp lớp"></textarea>
             'sectionVI',
             'masterSectionVI',
             'Ẩn cột phải',
-            'Ẩn toàn cột hoặc từng khối: games, marketplace, gợi ý, v.v.',
+            'Ẩn toàn cột hoặc từng khối: live, sự kiện, lời mời kết bạn, sinh nhật, v.v.',
             [
                 ['hideRightColumnAll', 'Ẩn toàn bộ cột phải', ''],
-                ['hideRightGameAppRequests', 'Ẩn Game / App requests', ''],
-                ['hideRightMarketplacePanel', 'Ẩn Marketplace (panel phải)', ''],
-                ['hideRightRecommendedPages', 'Ẩn Trang được đề xuất', ''],
-                ['hideRightTodaysGames', "Ẩn Today's games", ''],
-                ['hideRightSuggestedGroups', 'Ẩn Nhóm gợi ý', ''],
-                ['hideRightPokes', 'Ẩn Pokes', ''],
                 ['hideRightHappeningLive', 'Ẩn Happening now / Live', ''],
                 ['hideRightEvents', 'Ẩn Events', ''],
                 ['hideRightFriendRequests', 'Ẩn Lời mời kết bạn', ''],
-                ['hideRightYourPages', 'Ẩn Your pages', ''],
                 ['hideRightBirthdays', 'Ẩn Sinh nhật', ''],
-                ['hideRightWatch', 'Ẩn Watch (video)', ''],
-                ['hideRightSaved', 'Ẩn Saved / liên kết đã lưu', ''],
-                ['hideRightRelated', 'Ẩn mục Related / liên quan', ''],
             ],
         ),
         renderFacebookSection(
@@ -862,10 +740,8 @@ họp lớp"></textarea>
             'sectionIX',
             'masterSectionIX',
             'Tùy chọn top navigation bar',
-            'Cố định bar, nút thoát, ô tìm kiếm, và từng icon điều hướng.',
+            'Ô tìm kiếm và từng icon điều hướng.',
             [
-                ['freezeTopNavBar', 'Cố định top bar khi cuộn (freeze)', ''],
-                ['showLogoutButton', 'Hiện nút Đăng xuất (nếu chèn được)', ''],
                 ['hideSearchBoxAndPopup', 'Ẩn ô tìm kiếm & popup / xu hướng', ''],
                 ['hideNavHome', 'Ẩn nút Home', ''],
                 ['hideNavPages', 'Ẩn Pages', ''],
@@ -878,8 +754,6 @@ họp lớp"></textarea>
                 ['hideNavNotifications', 'Ẩn Notifications', ''],
                 ['hideNavNews', 'Ẩn News', ''],
                 ['hideNavEvents', 'Ẩn Events', ''],
-                ['hideNavFriendRequests', 'Ẩn Friend requests', ''],
-                ['hideNavAccountSwitcher', 'Ẩn chuyển tài khoản', ''],
             ],
         ),
     ].join('');
@@ -916,40 +790,20 @@ function refreshFacebookSectionUi() {
                 }
             }
         }
-        if (sectionId === 'sectionIII' && panel) {
-            const keywordsBlock = panel.querySelector('[data-fb-keywords-block]');
-            const openButton = panel.querySelector('[data-fb-text-filter-open]');
-            const removeButtons = panel.querySelectorAll('[data-fb-text-filter-remove]');
-            if (openButton) {
-                openButton.disabled = !sectionEnabled;
-            }
-            removeButtons.forEach((btn) => {
-                btn.disabled = !sectionEnabled;
-                btn.setAttribute('aria-disabled', String(!sectionEnabled));
-            });
-            if (!sectionEnabled && keywordsBlock) {
-                const tfModal = keywordsBlock.querySelector('[data-fb-text-filter-modal]');
-                if (tfModal) {
-                    tfModal.classList.add('hidden');
-                }
-            }
-            if (keywordsBlock) {
-                keywordsBlock.classList.toggle('fb-keywords-block--locked', !sectionEnabled);
-                if (sectionEnabled) {
-                    keywordsBlock.removeAttribute('inert');
-                } else {
-                    keywordsBlock.setAttribute('inert', '');
-                }
-            }
-        }
         if (sectionId === 'sectionIV' && panel) {
             const allowBlock = panel.querySelector('[data-fb-allow-url-block]');
             const allowToggle = panel.querySelector('[data-setting="allowByUrlOnly"][data-fb-parent="sectionIV"]');
             const allowOpenButton = panel.querySelector('[data-fb-allow-url-open]');
+            const allowClearAllBtn = panel.querySelector('[data-fb-allow-url-clear-all]');
             const allowRemoveButtons = panel.querySelectorAll('[data-fb-allow-url-remove]');
             const allowEnabled = sectionEnabled && Boolean(fb.allowByUrlOnly);
+            const allowUrlLines = parseAllowUrlListToLines(fb.allowByUrlList || '');
             if (allowOpenButton) {
                 allowOpenButton.disabled = !allowEnabled;
+            }
+            if (allowClearAllBtn) {
+                allowClearAllBtn.disabled = !allowEnabled || allowUrlLines.length === 0;
+                allowClearAllBtn.setAttribute('aria-disabled', String(allowClearAllBtn.disabled));
             }
             allowRemoveButtons.forEach((btn) => {
                 btn.disabled = !allowEnabled;
@@ -975,11 +829,17 @@ function refreshFacebookSectionUi() {
 
             const kwBlock = panel.querySelector('[data-fb-allow-keywords-block]');
             const kwOpenButton = panel.querySelector('[data-fb-allow-kw-open]');
+            const kwClearAllBtn = panel.querySelector('[data-fb-allow-kw-clear-all]');
             const kwRemoveButtons = panel.querySelectorAll('[data-fb-allow-kw-remove]');
             const kwToggle = panel.querySelector('[data-setting="allowPostKeywordsOnly"][data-fb-parent="sectionIV"]');
             const kwEnabled = sectionEnabled && Boolean(fb.allowPostKeywordsOnly);
+            const kwPhrases = parseAllowPostKeywordsPhrases(fb.allowPostKeywordsList || '');
             if (kwOpenButton) {
                 kwOpenButton.disabled = !kwEnabled;
+            }
+            if (kwClearAllBtn) {
+                kwClearAllBtn.disabled = !kwEnabled || kwPhrases.length === 0;
+                kwClearAllBtn.setAttribute('aria-disabled', String(kwClearAllBtn.disabled));
             }
             kwRemoveButtons.forEach((btn) => {
                 btn.disabled = !kwEnabled;
@@ -1008,10 +868,16 @@ function refreshFacebookSectionUi() {
             const hashtagBlock = panel.querySelector('[data-fb-hashtag-block]');
             const hashtagToggle = panel.querySelector('[data-setting="hideHashtagPosts"][data-fb-parent="sectionI"]');
             const hashtagOpenButton = panel.querySelector('[data-fb-hashtag-open]');
+            const hashtagClearAllBtn = panel.querySelector('[data-fb-hashtag-clear-all]');
             const hashtagRemoveButtons = panel.querySelectorAll('[data-fb-hashtag-remove]');
             const hashtagEnabled = sectionEnabled && Boolean(fb.hideHashtagPosts);
+            const hashtagTags = parseHashtagKeywords(fb.hashtagFilterKeywords || '');
             if (hashtagOpenButton) {
                 hashtagOpenButton.disabled = !hashtagEnabled;
+            }
+            if (hashtagClearAllBtn) {
+                hashtagClearAllBtn.disabled = !hashtagEnabled || hashtagTags.length === 0;
+                hashtagClearAllBtn.setAttribute('aria-disabled', String(hashtagClearAllBtn.disabled));
             }
             hashtagRemoveButtons.forEach((btn) => {
                 btn.disabled = !hashtagEnabled;
@@ -1090,94 +956,106 @@ function bindFacebookBulkSyncControls() {
     });
 }
 
+function toggleFacebookSectionPanel(sectionId) {
+    if (!sectionId) {
+        return;
+    }
+    const header = document.querySelector(`[data-fb-section-header="${sectionId}"]`);
+    const panel = document.querySelector(`[data-fb-panel="${sectionId}"]`);
+    if (!(panel instanceof HTMLElement)) {
+        return;
+    }
+    const expanded = header?.getAttribute('aria-expanded') === 'true';
+    const nextExpanded = !expanded;
+    if (header) {
+        header.setAttribute('aria-expanded', String(nextExpanded));
+    }
+    panel.classList.toggle('hidden', !nextExpanded);
+}
+
 function bindFacebookCollapseControls() {
-    document.querySelectorAll('[data-fb-collapse]').forEach((btn) => {
-        if (btn.dataset.bound === 'true') {
+    const root = document.getElementById('facebook-inapp-settings-root');
+    if (!root || root.dataset.fbCollapseBound === 'true') {
+        return;
+    }
+    root.dataset.fbCollapseBound = 'true';
+    root.addEventListener('click', (event) => {
+        const header = event.target instanceof Element
+            ? event.target.closest('[data-fb-section-header]')
+            : null;
+        if (!header || !root.contains(header)) {
             return;
         }
-        btn.dataset.bound = 'true';
-        btn.addEventListener('click', () => {
-            const id = btn.getAttribute('data-fb-collapse');
-            const panel = document.querySelector(`[data-fb-panel="${id}"]`);
-            if (!panel) {
-                return;
-            }
-            const expanded = btn.getAttribute('aria-expanded') === 'true';
-            const nextExpanded = !expanded;
-            btn.setAttribute('aria-expanded', String(nextExpanded));
-            panel.classList.toggle('hidden', !nextExpanded);
-        });
+        if (event.target instanceof Element && event.target.closest('button[data-switch][data-fb-master]')) {
+            return;
+        }
+        const sectionId = header.getAttribute('data-fb-section-header');
+        toggleFacebookSectionPanel(sectionId);
+    });
+    root.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') {
+            return;
+        }
+        const t = event.target;
+        if (!(t instanceof Element)) {
+            return;
+        }
+        const header = t.closest('[data-fb-section-header]');
+        if (!header || t !== header || !root.contains(header)) {
+            return;
+        }
+        event.preventDefault();
+        const sectionId = header.getAttribute('data-fb-section-header');
+        toggleFacebookSectionPanel(sectionId);
     });
 }
 
-function bindFacebookTextFilterChipUi() {
-    const block = document.querySelector('[data-fb-text-filter-block]');
-    const openButton = block?.querySelector('[data-fb-text-filter-open]');
-    const listEl = block?.querySelector('[data-fb-text-filter-list]');
-    const modal = block?.querySelector('[data-fb-text-filter-modal]');
-    const popupInput = block?.querySelector('#fb-text-filter-popup-input');
-    const saveButton = block?.querySelector('[data-fb-text-filter-save]');
-    if (!block || !openButton || !listEl || !modal || !popupInput || !saveButton || block.dataset.tfBound === 'true') {
-        return;
-    }
-    block.dataset.tfBound = 'true';
-
-    const closeModal = () => {
-        modal.classList.add('hidden');
-    };
-    const openModal = () => {
-        if (openButton.disabled) {
+/** Popup xác nhận (HỦY / XÓA HẾT) cho nút «Xóa hết» — tiêu đề + nội dung như mẫu Clear All. */
+function confirmDashboardClearList(title, message) {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('dashboard-confirm-modal');
+        const titleEl = document.getElementById('dashboard-confirm-title');
+        const bodyEl = document.getElementById('dashboard-confirm-body');
+        const yesBtn = document.getElementById('dashboard-confirm-yes');
+        const noBtn = document.getElementById('dashboard-confirm-no');
+        const backdrop = modal?.querySelector('[data-dashboard-confirm-dismiss]');
+        if (!modal || !titleEl || !bodyEl || !yesBtn || !noBtn || !backdrop) {
+            resolve(window.confirm(`${title}\n\n${message}`));
             return;
         }
-        popupInput.value = '';
+
+        titleEl.textContent = title;
+        bodyEl.textContent = message;
         modal.classList.remove('hidden');
-        popupInput.focus();
-    };
+        modal.setAttribute('aria-hidden', 'false');
 
-    const persistPhrases = (nextPhrases) => {
-        try {
-            chrome.storage.sync.get([STORAGE_KEY], (data) => {
-                if (chrome.runtime.lastError) {
-                    return;
-                }
-                const settings = mergeSettings(data[STORAGE_KEY]);
-                settings.facebook.textFilterKeywords = serializeTextFilterKeywords(nextPhrases);
-                saveSettings(settings);
-                notifyTabs('facebook');
-                currentSettings = mergeSettings(settings);
-                const canEdit = Boolean(currentSettings?.facebook?.masterSectionIII !== false);
-                listEl.innerHTML = renderTextFilterChips(nextPhrases, canEdit);
-                refreshFacebookSectionUi();
-            });
-        } catch (error) {
-            console.error('[DASHBOARD:FB_TEXT_FILTER]', error);
-        }
-    };
+        let settled = false;
+        const finish = (value) => {
+            if (settled) {
+                return;
+            }
+            settled = true;
+            modal.classList.add('hidden');
+            modal.setAttribute('aria-hidden', 'true');
+            yesBtn.removeEventListener('click', onYes);
+            noBtn.removeEventListener('click', onNo);
+            backdrop.removeEventListener('click', onNo);
+            document.removeEventListener('keydown', onKey);
+            resolve(value);
+        };
+        const onYes = () => finish(true);
+        const onNo = () => finish(false);
+        const onKey = (event) => {
+            if (event.key === 'Escape') {
+                finish(false);
+            }
+        };
 
-    openButton.addEventListener('click', openModal);
-    modal.querySelectorAll('[data-fb-text-filter-close]').forEach((btn) => {
-        btn.addEventListener('click', closeModal);
-    });
-    saveButton.addEventListener('click', () => {
-        const currentPhrases = parseTextFilterKeywords(currentSettings?.facebook?.textFilterKeywords || '');
-        const incomingPhrases = parseTextFilterKeywords(popupInput.value);
-        const merged = Array.from(new Set([...currentPhrases, ...incomingPhrases]));
-        persistPhrases(merged);
-        closeModal();
-    });
-
-    listEl.addEventListener('click', (event) => {
-        const target = event.target instanceof Element ? event.target.closest('[data-fb-text-filter-remove]') : null;
-        if (!(target instanceof HTMLButtonElement) || target.disabled) {
-            return;
-        }
-        const phraseToRemove = target.getAttribute('data-fb-text-filter-remove') || '';
-        if (!phraseToRemove) {
-            return;
-        }
-        const nextPhrases = parseTextFilterKeywords(currentSettings?.facebook?.textFilterKeywords || '')
-            .filter((p) => p !== phraseToRemove);
-        persistPhrases(nextPhrases);
+        yesBtn.addEventListener('click', onYes);
+        noBtn.addEventListener('click', onNo);
+        backdrop.addEventListener('click', onNo);
+        document.addEventListener('keydown', onKey);
+        noBtn.focus();
     });
 }
 
@@ -1272,9 +1150,24 @@ function bindFacebookAllowUrlChipUi() {
         }
     };
 
+    const clearAllButton = root.querySelector('[data-fb-allow-url-clear-all]');
+
     openButton.addEventListener('click', openModal);
     modal.querySelectorAll('[data-fb-allow-url-close]').forEach((btn) => {
         btn.addEventListener('click', closeModal);
+    });
+    clearAllButton?.addEventListener('click', () => {
+        if (clearAllButton.disabled) {
+            return;
+        }
+        confirmDashboardClearList(
+            'Xóa danh sách URL được phép',
+            'Bạn có chắc muốn xóa hết danh sách URL Facebook được phép?',
+        ).then((ok) => {
+            if (ok) {
+                persistNormalized('');
+            }
+        });
     });
     saveButton.addEventListener('click', () => {
         const currentRaw = currentSettings?.facebook?.allowByUrlList || '';
@@ -1348,9 +1241,24 @@ function bindFacebookAllowPostKeywordsChipUi() {
         }
     };
 
+    const clearAllButton = root.querySelector('[data-fb-allow-kw-clear-all]');
+
     openButton.addEventListener('click', openModal);
     modal.querySelectorAll('[data-fb-allow-kw-close]').forEach((btn) => {
         btn.addEventListener('click', closeModal);
+    });
+    clearAllButton?.addEventListener('click', () => {
+        if (clearAllButton.disabled) {
+            return;
+        }
+        confirmDashboardClearList(
+            'Xóa danh sách từ / cụm được phép',
+            'Bạn có chắc muốn xóa hết danh sách từ và cụm được phép?',
+        ).then((ok) => {
+            if (ok) {
+                persistPhrases([]);
+            }
+        });
     });
     saveButton.addEventListener('click', () => {
         const currentPhrases = parseAllowPostKeywordsPhrases(currentSettings?.facebook?.allowPostKeywordsList || '');
@@ -1420,9 +1328,24 @@ function bindFacebookHashtagFilter() {
         }
     };
 
+    const clearAllButton = block.querySelector('[data-fb-hashtag-clear-all]');
+
     openButton.addEventListener('click', openModal);
     modal.querySelectorAll('[data-fb-hashtag-close]').forEach((btn) => {
         btn.addEventListener('click', closeModal);
+    });
+    clearAllButton?.addEventListener('click', () => {
+        if (clearAllButton.disabled) {
+            return;
+        }
+        confirmDashboardClearList(
+            'Xóa danh sách hashtag',
+            'Bạn có chắc muốn xóa hết danh sách hashtag đang chặn?',
+        ).then((ok) => {
+            if (ok) {
+                persistTags([]);
+            }
+        });
     });
     saveButton.addEventListener('click', () => {
         const currentTags = parseHashtagKeywords(currentSettings?.facebook?.hashtagFilterKeywords || '');
@@ -1564,12 +1487,6 @@ function applyStoredSettings(settings) {
         setSwitchVisualState(switchButton, isOn);
     });
 
-    const fbTextFilterList = document.getElementById('fb-text-filter-list');
-    if (fbTextFilterList) {
-        const phrases = parseTextFilterKeywords(currentSettings?.facebook?.textFilterKeywords || '');
-        const canEdit = Boolean(currentSettings?.facebook?.masterSectionIII !== false);
-        fbTextFilterList.innerHTML = renderTextFilterChips(phrases, canEdit);
-    }
     const fbHashtagList = document.getElementById('fb-hashtag-list');
     if (fbHashtagList) {
         const tags = parseHashtagKeywords(currentSettings?.facebook?.hashtagFilterKeywords || '');
@@ -2221,18 +2138,10 @@ function bindInAppSwitch(switchButton) {
                 const settings = mergeSettings(data[STORAGE_KEY]);
                 const nextValue = !settings?.[platform]?.[setting];
                 settings[platform][setting] = nextValue;
-                if (platform === 'facebook' && setting === 'allowByUrlOnly') {
-                    // #region agent log
-                    fetch('http://127.0.0.1:7371/ingest/7634893a-f87f-456c-8e21-990ad9d66e04',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'71e079'},body:JSON.stringify({sessionId:'71e079',runId:'run2',hypothesisId:'H1',location:'dashboard.js:bindInAppSwitch',message:'allowByUrlOnly toggled',data:{nextValue,allowByUrlList:(settings.facebook.allowByUrlList||'').slice(0,200)},timestamp:Date.now()})}).catch(()=>{});
-                    // #endregion
-                }
                 setSwitchVisualState(switchButton, nextValue);
                 saveSettings(settings);
                 notifyTabs(platform);
                 if (platform === 'facebook') {
-                    // #region agent log
-                    fetch('http://127.0.0.1:7371/ingest/7634893a-f87f-456c-8e21-990ad9d66e04', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '5f42da' }, body: JSON.stringify({ sessionId: '5f42da', hypothesisId: 'H2_toggle_save', location: 'dashboard.js:bindInAppSwitch', message: 'facebook toggle', data: { setting, nextValue, masterSectionI: settings.facebook?.masterSectionI, masterSectionII: settings.facebook?.masterSectionII, masterAdsContent: settings.facebook?.masterAdsContent }, timestamp: Date.now() }) }).catch(() => {});
-                    // #endregion
                     refreshFacebookSectionUi();
                     refreshFacebookBulkSyncVisuals();
                 }
@@ -2246,7 +2155,6 @@ function bindInAppSwitch(switchButton) {
 mountFacebookInAppPanel();
 bindFacebookCollapseControls();
 bindFacebookBulkSyncControls();
-bindFacebookTextFilterChipUi();
 bindFacebookHashtagFilter();
 bindFacebookAllowUrlChipUi();
 bindFacebookAllowPostKeywordsChipUi();

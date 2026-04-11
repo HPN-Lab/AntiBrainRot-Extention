@@ -508,6 +508,20 @@
     </main>
 </div>
 
+<div id="dashboard-confirm-modal" class="fb-hashtag-modal dashboard-clear-confirm hidden" aria-hidden="true">
+    <div class="fb-hashtag-modal__backdrop" data-dashboard-confirm-dismiss tabindex="-1"></div>
+    <div class="fb-hashtag-modal__panel dashboard-clear-confirm__panel theme-surface theme-border" role="dialog" aria-modal="true" aria-labelledby="dashboard-confirm-title">
+        <div class="dashboard-clear-confirm__inner">
+            <h2 id="dashboard-confirm-title" class="dashboard-clear-confirm__title"></h2>
+            <p id="dashboard-confirm-body" class="dashboard-clear-confirm__body"></p>
+        </div>
+        <div class="dashboard-clear-confirm__actions">
+            <button type="button" id="dashboard-confirm-no" class="dashboard-clear-confirm__btn-cancel">HỦY</button>
+            <button type="button" id="dashboard-confirm-yes" class="dashboard-clear-confirm__btn-clear">XÓA HẾT</button>
+        </div>
+    </div>
+</div>
+
 <script src="scripts/dashboard.js"></script>
 </body>
 </html>

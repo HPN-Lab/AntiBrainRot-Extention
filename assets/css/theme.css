@@ -321,27 +321,21 @@ button.theme-switch:disabled {
     pointer-events: none;
 }
 
-.fb-section-toggle:focus-visible {
+.fb-section-header:focus-visible {
     outline: 2px solid var(--theme-primary);
     outline-offset: 2px;
 }
 
-.fb-section-toggle .fb-chevron {
+.fb-section-header .fb-chevron {
     transform: rotate(0deg);
 }
 
-.fb-section-toggle[aria-expanded="false"] .fb-chevron {
+.fb-section-header[aria-expanded="false"] .fb-chevron {
     transform: rotate(-90deg);
 }
 
 .fb-child-row.fb-child-row--locked {
     opacity: 0.48;
-}
-
-.fb-text-filter-keywords-block.fb-keywords-block--locked {
-    opacity: 0.48;
-    pointer-events: none;
-    user-select: none;
 }
 
 .fb-hashtag-keywords-block.fb-hashtag-block--locked {
@@ -385,6 +379,37 @@ button.theme-switch:disabled {
 .fb-hashtag-add-btn:disabled {
     opacity: 0.55;
     cursor: not-allowed;
+}
+
+.fb-list-clear-all-btn {
+    border: 1px solid rgba(220, 38, 38, 0.38);
+    background: rgba(254, 226, 226, 0.9);
+    color: #991b1b;
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.fb-list-clear-all-btn:hover:not(:disabled) {
+    background: rgba(252, 165, 165, 0.45);
+    border-color: rgba(185, 28, 28, 0.45);
+}
+
+.fb-list-clear-all-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+:root[data-theme="dark"] .fb-list-clear-all-btn {
+    border-color: rgba(248, 113, 113, 0.4);
+    background: rgba(127, 29, 29, 0.35);
+    color: #fecaca;
+}
+
+:root[data-theme="dark"] .fb-list-clear-all-btn:hover:not(:disabled) {
+    background: rgba(153, 27, 27, 0.5);
+    border-color: rgba(252, 165, 165, 0.45);
 }
 
 .fb-hashtag-list {
@@ -441,6 +466,98 @@ button.theme-switch:disabled {
     border-radius: 12px;
     border: 1px solid var(--theme-border);
     box-shadow: 0 18px 45px rgba(15, 23, 42, 0.26);
+}
+
+/* Popup xác nhận «Xóa hết» — kiểu tiêu đề + nội dung + HỦY / XÓA HẾT */
+.dashboard-clear-confirm .dashboard-clear-confirm__panel {
+    width: min(420px, calc(100vw - 32px));
+    max-width: 420px;
+    margin: 12vh auto 0;
+    padding: 0;
+    border-radius: 10px;
+    box-shadow: 0 20px 50px rgba(15, 23, 42, 0.22);
+    overflow: hidden;
+}
+
+.dashboard-clear-confirm__inner {
+    padding: 24px 24px 8px;
+}
+
+.dashboard-clear-confirm__title {
+    margin: 0 0 12px;
+    font-family: var(--theme-font-heading);
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1.25;
+    color: var(--theme-title);
+    letter-spacing: -0.02em;
+}
+
+.dashboard-clear-confirm__body {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 400;
+    line-height: 1.45;
+    color: var(--theme-text);
+}
+
+.dashboard-clear-confirm__actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 20px 24px 24px;
+}
+
+.dashboard-clear-confirm__btn-cancel {
+    border: 0;
+    border-radius: 6px;
+    padding: 10px 18px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    color: #1a3a52;
+    background: #ebf2f7;
+    transition: background 0.15s ease;
+}
+
+.dashboard-clear-confirm__btn-cancel:hover {
+    background: #dde8f2;
+}
+
+.dashboard-clear-confirm__btn-clear {
+    border: 0;
+    border-radius: 6px;
+    padding: 10px 18px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    color: #fff;
+    background: #c65f4d;
+    transition: background 0.15s ease;
+}
+
+.dashboard-clear-confirm__btn-clear:hover {
+    background: #b55342;
+}
+
+:root[data-theme="dark"] .dashboard-clear-confirm__btn-cancel {
+    color: var(--theme-title);
+    background: var(--theme-soft-surface);
+}
+
+:root[data-theme="dark"] .dashboard-clear-confirm__btn-cancel:hover {
+    background: var(--theme-button-hover);
+}
+
+:root[data-theme="dark"] .dashboard-clear-confirm__btn-clear {
+    background: #a84e3f;
+}
+
+:root[data-theme="dark"] .dashboard-clear-confirm__btn-clear:hover {
+    background: #c65f4d;
 }
 
 .fb-hashtag-modal__close {

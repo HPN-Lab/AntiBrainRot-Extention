@@ -3,12 +3,17 @@
 
 const STORAGE_KEY = 'inAppBlockingSettings';
 const EXTENSION_ACTIVE_KEY = 'isExtensionActive';
-const ARTICLE_SELECTOR = '[role="article"]';
+/** Bài trên bảng tin — đúng `individualpostdomquery` script.js ~341. */
+const ARTICLE_SELECTOR = 'div[aria-posinset],div[role="feed"] div[role="article"],div[role="feed"] article';
+/** Gốc một bài (closest / ẩn cả khối). */
+const FEED_POST_ROOT_SELECTOR = 'div[aria-posinset],div[role="feed"] div[role="article"],div[role="feed"] article,div[role="article"],article';
+/** Bài trong [role=main] khi cần quét lại (ẩn cả bảng tin). */
+const MAIN_COLUMN_POST_SELECTOR = '[role="main"] div[aria-posinset],[role="main"] div[role="feed"] div[role="article"],[role="main"] div[role="feed"] article,[role="main"] div[role="article"],[role="main"] article';
 const HIDDEN_FLAG = 'data-fb-sponsored-hidden';
 const PROCESSED_FLAG = 'data-fb-sponsored-checked';
 const FEED_HIDDEN_FLAG = 'data-fb-feed-hidden';
 const LIKE_PAGE_BTN_HIDDEN_ATTR = 'data-sf-fb-likepage-btn-hidden';
-/** Ẩn bảng tin khi Facebook không còn bọc nội dung trong [role="feed"] (chỉ còn [role="article"]). */
+/** Ẩn bảng tin khi Facebook chỉ còn [role="article"] / article / div[aria-posinset] thay vì khung feed đầy đủ. */
 /** Bật hook GraphQL trong page (facebook-feed-network-bridge.js) khi ẩn toàn bộ bảng tin. */
 const FB_HOME_GRAPHQL_BLOCK_ATTR = 'data-sf-block-home-graphql';
 const FB_NEWSFEED_HIDE_ATTR = 'data-sf-hide-fb-newsfeed';
@@ -20,7 +25,8 @@ html[data-sf-hide-fb-newsfeed="true"] [role="main"] [role="feed"] {
     display: none !important;
 }
 html[data-sf-hide-fb-newsfeed="true"] [role="main"] [role="article"],
-html[data-sf-hide-fb-newsfeed="true"] [role="main"] article {
+html[data-sf-hide-fb-newsfeed="true"] [role="main"] article,
+html[data-sf-hide-fb-newsfeed="true"] [role="main"] div[aria-posinset] {
     display: none !important;
 }
 html[data-sf-hide-fb-newsfeed="true"] [role="main"] [data-pagelet^="Stories"] {
@@ -79,18 +85,64 @@ const MAX_SCAN_TEXT_LENGTH = 6000;
 /** Haystack cho Allow từ khóa — không dùng toàn bộ innerText bài (tránh comment/UI). */
 const ALLOW_KEYWORD_HAYSTACK_MAX = 5000;
 const SAFE_TAGS = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'META', 'LINK']);
-const SPONSORED_KEYWORDS = [
-    'sponsored',
+/**
+ * Comet / nhãn đa ngôn ngữ (bổ sung sau lớp F.B. Purity). EN: \bsponsored\b — tránh "unsponsored".
+ */
+const EN_SPONSORED_TOKEN_RE = /\bsponsored\b/i;
+const SPONSORED_NON_EN_FRAGMENTS = [
     'được tài trợ',
     'duoc tai tro',
-    'quảng cáo',
-    'quang cao',
     'sponsorisé',
     'patrocinado',
     'gesponsert',
     'sponsorizzato',
 ];
-const TRACKER_PATTERNS = ['/ads/about/', '__tn__', 'ad_id=', 'adset_id=', '/business/help/'];
+const MAX_ARIA_SPONSORED_SCAN_LEN = 280;
+/**
+ * F.B. Purity `sponsoredbox`: chuỗi và cách dựng RegExp copy từ script.js — KHÔNG đổi thuật toán.
+ * header: new RegExp(headerTextFilter.replace(/,/g,'|'),'gi') — ~4431–4433
+ * text: fbpescaperegex → comma→pipe — ~4403–4412, 3698
+ * story header: querySelector('h5,h4,h3').textContent — ~6373–6383
+ * khớp header: ~6946; text + OCR: ~7022–7024
+ * @see scripts/script.js ~503–522, ~3695–3700, ~6946, ~7022
+ */
+function fbpEscaperegexLikeScriptJs(str) {
+    const replacements = {
+        '(': '\\(',
+        ')': '\\)',
+        '[': '\\[',
+        ']': '\\]',
+        '{': '\\{',
+        '}': '\\}',
+    };
+    let s = str;
+    try {
+        Object.keys(replacements).forEach((key) => {
+            s = s.split(key).join(replacements[key]);
+        });
+    } catch (e) {
+        /* giống script.js: nuốt lỗi */
+    }
+    return s;
+}
+/** Đúng nội dung `headerTextFilter +=` dòng sponsoredbox (sau bỏ dấu phẩy đầu → pipe). */
+const FBP_SPONSORED_HEADER_FILTER_COMMA_LIST = ' claimed an offer from, posted an offer,shared an offer,shared a product\\.,shared their product\\.,posted a job\\.';
+/** Đúng nội dung `extraTextFilter +=` dòng sponsoredbox (không gồm dấu phẩy nối vào chuỗi trước). */
+const FBP_SPONSORED_EXTRA_TEXT_FILTER_COMMA_LIST = 'Get Offer ·,Advertiser-sponsored poll,· Paid ·,· Paid for by,Paid partnership ·,Paid Partnership  ·,Get offerAll reactions';
+let FBP_SPONSORED_HEADER_RX = null;
+let FBP_SPONSORED_TEXT_RX = null;
+try {
+    FBP_SPONSORED_HEADER_RX = new RegExp(FBP_SPONSORED_HEADER_FILTER_COMMA_LIST.replace(/,/g, '|'), 'gi');
+} catch (e) {
+    FBP_SPONSORED_HEADER_RX = null;
+}
+try {
+    let tmptextfilter = fbpEscaperegexLikeScriptJs(FBP_SPONSORED_EXTRA_TEXT_FILTER_COMMA_LIST);
+    tmptextfilter = tmptextfilter.replace(/,,/g, ',').replace(/,+$|^,+/g, '');
+    FBP_SPONSORED_TEXT_RX = new RegExp(tmptextfilter.replace(/,/g, '|').replace(/&#44;/g, ','), 'gi');
+} catch (e) {
+    FBP_SPONSORED_TEXT_RX = null;
+}
 const PROFILE_UPDATE_KEYWORDS = [
     'cập nhật ảnh đại diện',
     'cập nhật ảnh bìa',
@@ -192,8 +244,11 @@ const LIKE_PAGE_PATTERNS = [
 ];
 const SHARED_PHOTO_ALBUM_PATTERNS = [
     /\bchia sẻ (một )?(ảnh|album ảnh)\b/i,
+    /\bchia sẻ album\b/i,
     /\bchia sẻ (\d+ )?ảnh\b/i,
+    /\bđã chia sẻ (\d+ )?ảnh\b/i,
     /\bshared? (a )?(photo|album)\b/i,
+    /\bshared an album\b/i,
     /\bshared? (\d+ )?photos?\b/i,
 ];
 const UPDATED_PROFILE_PHOTO_PATTERNS = [
@@ -205,10 +260,13 @@ const UPDATED_PROFILE_PHOTO_PATTERNS = [
 ];
 const UPLOADED_PHOTO_PATTERNS = [
     /\bđã tải ảnh lên\b/i,
+    /\bthêm \d+ ảnh\b/i,
+    /\bđã thêm \d+ ảnh\b/i,
     /\btải lên (một )?ảnh\b/i,
     /\bđăng (một )?ảnh\b/i,
     /\bđã đăng (một )?ảnh\b/i,
     /\buploaded (a )?photo\b/i,
+    /\badded \d+ photos?\b/i,
     /\badded new photos?\b/i,
     /\badded photos?\b/i,
 ];
@@ -231,9 +289,12 @@ const COMMENTED_PHOTO_PATTERNS = [
 const LIVE_VIDEO_PATTERNS = [
     /\btrực tiếp( ngay bây giờ)?\b/i,
     /\bđang phát trực tiếp\b/i,
+    /\bđang livestream\b/i,
+    /\blivestream\b/i,
     /\bđã phát trực tiếp\b/i,
     /\bvideo trực tiếp\b/i,
     /\bphát trực tiếp\b/i,
+    /\bis live\b/i,
     /\bis live now\b/i,
     /\bwas live\b/i,
     /\bstarted a live video\b/i,
@@ -246,18 +307,25 @@ const VIDEO_INTERACTION_LEGACY_PATTERNS = [
 ];
 const SHARED_VIDEO_STORY_PATTERNS = [
     /\bchia sẻ\s+(một\s+)?video\b/i,
+    /\bchia sẻ video\b/i,
     /\bđã\s+chia sẻ\s+(một\s+)?video\b/i,
+    /\bđã chia sẻ video\b/i,
     /\bshared?\s+a\s+video\b/i,
 ];
 const LIKED_VIDEO_STORY_PATTERNS = [
     /\bthích\s+(một\s+)?video\b/i,
+    /\bthích video\b/i,
     /\bđã\s+thích\s+(một\s+)?video\b/i,
+    /\bđã thích video\b/i,
     /\bliked?\s+a\s+video\b/i,
     /\blikes?\s+a\s+video\b/i,
+    /\breacted to\s+a\s+video\b/i,
 ];
 const COMMENTED_VIDEO_STORY_PATTERNS = [
     /\bbình luận về\s+(một\s+)?video\b/i,
+    /\bbình luận về video\b/i,
     /\bđã\s+bình luận về\s+(một\s+)?video\b/i,
+    /\bđã bình luận về video\b/i,
     /\bcommented on\s+(a\s+)?video\b/i,
 ];
 const REELS_LABELS = [
@@ -276,25 +344,22 @@ const SUGGESTED_KEYWORDS = [
     'people you may know',
     'groups you might be interested in',
 ];
-const SPONSORED_LABELS = ['được tài trợ', 'sponsored'];
 const DEBUG_MODE = false;
 const RIGHT_COL_SCAN_INTERVAL_MS = 2500;
 const RIGHT_COL_HIDDEN_FLAG = 'data-fb-rightcol-hidden';
 const LEFT_COL_SCAN_INTERVAL_MS = 3500;
-const LEFT_COL_HIDDEN_FLAG = 'data-fb-leftcol-hidden';
+/** script.js ~337–339 `leftrailcode` / `leftrailcode2` / `leftrailcode3` — chỉ đổi tên. */
+const LEFT_COL_FBP_CSS_STYLE_ID = 'sf-fb-leftcol-fbp-scriptjs';
+const _fbpUiLrSsrbNext = '#ssrb_left_rail_start+div';
+const _fbpUiLrBannerAnimLayout = 'div[role="banner"]+div+div[data-isanimatedlayout]';
+const _fbpUiLrBannerSingle = 'div[role="banner"]+div';
+/** script.js top nav: cùng chuỗi `div[role="banner"]` trong fbpfreestyle / fbpboxstyles — chỉ đổi tên biến. */
+const _fbpUiTpBn = 'div[role="banner"]';
 const TOP_NAV_STYLE_ID = 'purify-topnav-styles';
-const QUICK_LOGOUT_ID = 'quick-logout-btn';
 const RIGHT_COL_WIDGET_DICTIONARIES = {
     birthdays: ['sinh nhật', 'birthdays', 'birthday'],
     friendRequests: ['yêu cầu kết bạn', 'friend requests'],
-    yourPages: ['trang của bạn', 'trang và trang cá nhân', 'your pages', 'your profiles'],
-    recommendedPages: ['gợi ý trang', 'trang gợi ý', 'recommended pages', 'suggested pages'],
-    suggestedGroups: ['nhóm gợi ý', 'suggested groups', 'groups you might'],
     events: ['sự kiện', 'đang diễn ra', 'events', 'happening now'],
-    gamesAndApps: ['trò chơi', 'games', 'game requests', 'ứng dụng', 'app requests'],
-    marketplace: ['marketplace', 'chợ'],
-    pokes: ['chọc', 'pokes'],
-    watch: ['watch', 'video đề xuất', 'suggested videos'],
     trending: [
         'thịnh hành',
         'đang thịnh hành',
@@ -305,24 +370,6 @@ const RIGHT_COL_WIDGET_DICTIONARIES = {
         'featured topic',
     ],
 };
-const LEFT_NAV_DICTIONARY = {
-    pages: ['/pages/', '/bookmarks/pages/'],
-    groups: ['/groups/', '/bookmarks/groups/'],
-    watch: ['/watch/'],
-    marketplace: ['/marketplace/'],
-    memories: ['/memories/', '/onthisday/'],
-    saved: ['/saved/'],
-    events: ['/events/'],
-    gaming: ['/gaming/', '/games/'],
-    adsManager: ['/ad_center/', '/adsmanager/', '/ads/'],
-    fundraisers: ['/fundraisers/', '/charity/'],
-    bloodDonations: ['/blooddonations/'],
-    climateScience: ['/climatescienceinfo/'],
-    professional: ['/professional_dashboard/', '/business/'],
-    feedsMenu: ['/feeds/'],
-    payAndOrders: ['/facebook_pay/', '/orders/'],
-};
-
 let observer = null;
 let isAdBlockEnabled = false;
 let pendingArticles = new Set();
@@ -336,9 +383,6 @@ let allowUrlSet = new Set();
 /** Cụm từ (chữ thường) cho Allow theo từ khóa. */
 let allowPostKeywordPhrases = [];
 let topNavInitTimer = null;
-let topNavObserver = null;
-let topNavLogoutDebounceTimer = null;
-const TOP_NAV_LOGOUT_RESYNC_DEBOUNCE_MS = 450;
 let allowByUrlDebugCount = 0;
 /** Khi DEBUG_MODE: log tối đa N bài không trích được URL nguồn (hỗ trợ chỉnh selector). */
 const ALLOW_URL_DOM_DEBUG_MAX = 12;
@@ -372,32 +416,28 @@ let fbBlockConfig = {
     hideCommentedVideoPost: false,
     hideReelsTray: true,
     hideSingleReelPosts: true,
-    disableVideoAutoplay: true,
     allowByUrlOnly: false,
     allowPostKeywordsOnly: false,
     hideHashtagPosts: false,
     textFilterEnabled: false,
+    textFilterKeepMatchingOnly: false,
     hideRightColumnAll: false,
     hideRightBirthdays: false,
     hideRightFriendRequests: false,
-    hideRightYourPages: false,
-    hideRightRecommendedPages: false,
-    hideRightSuggestedGroups: false,
     hideRightEvents: false,
-    hideRightGameAppRequests: false,
-    hideRightMarketplacePanel: false,
-    hideRightPokes: false,
-    hideRightWatch: false,
     hideRightSponsoredAds: false,
     hideLeftColumnAll: false,
     hideLeftPages: false,
     hideLeftGroups: false,
+    hideLeftFriends: false,
     hideLeftWatch: false,
     hideLeftMarketplace: false,
     hideLeftMemories: false,
     hideLeftSaved: false,
     hideLeftEvents: false,
+    hideLeftCreate: false,
     hideLeftGaming: false,
+    hideLeftGameStreaming: false,
     hideLeftAdsManager: false,
     hideLeftFundraisers: false,
     hideLeftBloodDonations: false,
@@ -405,9 +445,21 @@ let fbBlockConfig = {
     hideLeftProfessional: false,
     hideLeftFeedsMenu: false,
     hideLeftPayAndOrders: false,
+    hideLeftOrderFood: false,
+    hideLeftOffers: false,
+    hideLeftWeather: false,
+    hideLeftShops: false,
+    hideLeftLiveVideos: false,
+    hideLeftReels: false,
+    hideLeftMovies: false,
+    hideLeftMessenger: false,
+    hideLeftJobs: false,
+    hideLeftVotingInformation: false,
+    hideLeftCrisisResponse: false,
+    hideLeftNews: false,
+    hideLeftMetaAI: false,
+    hideLeftMusic: false,
     hideLeftShortcuts: false,
-    freezeTopNavBar: false,
-    showLogoutButton: false,
     hideSearchBoxAndPopup: false,
     hideNavHome: false,
     hideNavPages: false,
@@ -420,8 +472,6 @@ let fbBlockConfig = {
     hideNavNotifications: false,
     hideNavNews: false,
     hideNavEvents: false,
-    hideNavFriendRequests: false,
-    hideNavAccountSwitcher: false,
     hideSuggestedPosts: false,
     hideMarketplaceAds: false,
     hideSponsoredPosts: true,
@@ -454,14 +504,6 @@ function clearFacebookRuntime() {
         window.clearTimeout(topNavInitTimer);
         topNavInitTimer = null;
     }
-    if (topNavLogoutDebounceTimer !== null) {
-        window.clearTimeout(topNavLogoutDebounceTimer);
-        topNavLogoutDebounceTimer = null;
-    }
-    if (topNavObserver) {
-        topNavObserver.disconnect();
-        topNavObserver = null;
-    }
     pendingArticles.clear();
     document.querySelectorAll(`[${LIKE_PAGE_BTN_HIDDEN_ATTR}]`).forEach((el) => {
         el.removeAttribute(LIKE_PAGE_BTN_HIDDEN_ATTR);
@@ -482,17 +524,17 @@ function clearFacebookRuntime() {
         el.removeAttribute(RIGHT_COL_HIDDEN_FLAG);
         el.style.removeProperty('display');
     });
-    document.querySelectorAll(`[${LEFT_COL_HIDDEN_FLAG}]`).forEach((el) => {
-        el.removeAttribute(LEFT_COL_HIDDEN_FLAG);
-        el.style.removeProperty('display');
-    });
     const styleTag = document.getElementById(TOP_NAV_STYLE_ID);
     if (styleTag) {
         styleTag.remove();
     }
-    const logoutBtn = document.getElementById(QUICK_LOGOUT_ID);
-    if (logoutBtn) {
-        logoutBtn.remove();
+    const leftColFbpStyle = document.getElementById(LEFT_COL_FBP_CSS_STYLE_ID);
+    if (leftColFbpStyle) {
+        leftColFbpStyle.remove();
+    }
+    const legacyLogoutBtn = document.getElementById('quick-logout-btn');
+    if (legacyLogoutBtn) {
+        legacyLogoutBtn.remove();
     }
     /* Không gỡ data-sf-hide-fb-newsfeed / GraphQL / style ở đây — tránh khoảng trống hook + CSS
        trước khi loadFacebookSettings gán lại; tắt hoàn toàn do syncFacebookNewsfeedHideOverlay + nhánh else. */
@@ -549,11 +591,158 @@ function extractVisibleText(root) {
     return chunks.join(' ');
 }
 
-function hasSponsoredKeyword(text) {
-    if (!text) {
+function disclosurePlaintextMatches(text) {
+    if (!text || typeof text !== 'string') {
         return false;
     }
-    return SPONSORED_KEYWORDS.some((keyword) => text.includes(keyword));
+    const t = text.trim().toLowerCase();
+    if (!t) {
+        return false;
+    }
+    if (EN_SPONSORED_TOKEN_RE.test(t)) {
+        return true;
+    }
+    return SPONSORED_NON_EN_FRAGMENTS.some((frag) => t.includes(frag));
+}
+
+/** Haystack = tiêu đề + đầu nội dung hiển thị — tránh khớp ở comment hoặc thân bài xa. */
+function getSponsoredLabelHaystack(article, fullVisibleText, headerText, actionHeaderText) {
+    const h = (headerText || '').trim().toLowerCase();
+    const a = (actionHeaderText || '').trim().toLowerCase();
+    const top = (fullVisibleText || '').slice(0, 720).trim().toLowerCase();
+    if (h || a) {
+        return `${h} ${a} ${top}`.trim();
+    }
+    if (!(article instanceof Element)) {
+        return top;
+    }
+    const fallbackHeader = getHeaderText(article);
+    const fallbackAction = getActionHeaderText(article);
+    return `${(fallbackHeader || '').trim().toLowerCase()} ${(fallbackAction || '').trim().toLowerCase()} ${top}`.trim();
+}
+
+function matchesSponsoredLabelHaystack(haystack) {
+    if (!haystack) {
+        return false;
+    }
+    return disclosurePlaintextMatches(haystack);
+}
+
+/** script.js CSS: article[…][data-ft*='"ei":"'] — story promoted trong JSON data-ft. */
+function hasScriptJsDataFtEiSponsored(article) {
+    if (!(article instanceof Element)) {
+        return false;
+    }
+    const scanFt = (el) => {
+        const v = el.getAttribute('data-ft');
+        if (!v || typeof v !== 'string') {
+            return false;
+        }
+        return v.includes('"ei":"') || v.includes('"ei":');
+    };
+    if (article.hasAttribute('data-ft') && scanFt(article)) {
+        return true;
+    }
+    const nodes = article.querySelectorAll('[data-ft]');
+    for (let i = 0; i < nodes.length; i++) {
+        if (scanFt(nodes[i])) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/** script.js fbpfreestyle: div.sponsored_ad { display:none } */
+function hasScriptJsLegacySponsoredAdClass(article) {
+    if (!(article instanceof Element)) {
+        return false;
+    }
+    if (article.classList?.contains('sponsored_ad')) {
+        return true;
+    }
+    return article.querySelector('.sponsored_ad') !== null;
+}
+
+/** cleartheshizzle ~6373: storysaction = story.querySelector('h5,h4,h3'). */
+function getFbpStorysactionText(article) {
+    if (!(article instanceof Element)) {
+        return '';
+    }
+    const storysaction = article.querySelector('h5,h4,h3');
+    return storysaction ? String(storysaction.textContent || '') : '';
+}
+
+/**
+ * cleartheshizzle ~6946 — điều kiện headertextfilterRX (chỉ mẫu sponsoredbox).
+ * Dùng textContent gốc cho nhánh split · (không phải extractVisibleText).
+ */
+function matchesFbpSponsoredHeaderTextFilter(article) {
+    if (!FBP_SPONSORED_HEADER_RX) {
+        return false;
+    }
+    const rx = FBP_SPONSORED_HEADER_RX;
+    const storysactiontext = getFbpStorysactionText(article);
+    if (storysactiontext.length) {
+        rx.lastIndex = 0;
+        if (rx.test(storysactiontext)) {
+            return true;
+        }
+    }
+    const nodeText = article.textContent || '';
+    if (nodeText.includes('\u00b7')) {
+        rx.lastIndex = 0;
+        if (rx.test(nodeText.split('\u00b7')[0])) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/** cleartheshizzle ~6963–6967: OCR từ img alt cho text filter. */
+function getFbpStoryOcrChunk(article) {
+    if (!(article instanceof Element)) {
+        return '';
+    }
+    const img = article.querySelector('img[alt*="text that says"]');
+    if (!img) {
+        return '';
+    }
+    const alt = img.getAttribute('alt') || '';
+    const ocrImageTextMatch = alt.match(/text that says ('|")(.*)('|")$/);
+    if (ocrImageTextMatch && ocrImageTextMatch.length > 2 && ocrImageTextMatch[2]) {
+        return ocrImageTextMatch[2];
+    }
+    return '';
+}
+
+/**
+ * cleartheshizzle ~7022–7024 — cùng chuỗi `story.textContent` (+ OCR) dùng cho textfilterRX sponsored;
+ * hashtag filter tái sử dụng (lower-case ở bước ghép haystack).
+ */
+function getFbpStoryBodyTextForTextFilter(article) {
+    if (!(article instanceof Element)) {
+        return '';
+    }
+    const ocrImageText = getFbpStoryOcrChunk(article);
+    const storyText = article.textContent || '';
+    return ocrImageText.length ? `${storyText} ${ocrImageText}` : storyText;
+}
+
+/**
+ * cleartheshizzle ~7022–7024 — textfilterRX trên toàn story.textContent (+ OCR).
+ * Giống FBP: không cắt 4800, không lower-case.
+ */
+function matchesFbpSponsoredStoryTextFilter(article) {
+    if (!FBP_SPONSORED_TEXT_RX) {
+        return false;
+    }
+    const haystack = getFbpStoryBodyTextForTextFilter(article);
+    if (!haystack.length) {
+        return false;
+    }
+    FBP_SPONSORED_TEXT_RX.lastIndex = 0;
+    const tmpmatch = haystack.match(FBP_SPONSORED_TEXT_RX);
+    return Boolean(tmpmatch && tmpmatch.length);
 }
 
 function markBlockedByDebug(article, reason) {
@@ -565,87 +754,520 @@ function markBlockedByDebug(article, reason) {
     article.setAttribute('data-fb-block-reason', reason);
 }
 
-function hasAriaOrIconSignals(article) {
-    const ariaNodes = article.querySelectorAll('[aria-label]');
-    for (const node of ariaNodes) {
-        const label = (node.getAttribute('aria-label') || '').toLowerCase();
-        if (hasSponsoredKeyword(label)) {
-            return true;
-        }
-    }
-
-    const svgNodes = article.querySelectorAll('svg[aria-label], svg title');
-    for (const node of svgNodes) {
-        const raw = typeof node.getAttribute === 'function' ? node.getAttribute('aria-label') : '';
-        const value = ((node.textContent || '') + ' ' + (raw || '')).toLowerCase();
-        if (hasSponsoredKeyword(value)) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-function hasAdTrackerLinks(article) {
-    const links = article.querySelectorAll('a[href]');
-    for (const link of links) {
-        const href = (link.getAttribute('href') || '').toLowerCase();
-        if (TRACKER_PATTERNS.some((pattern) => href.includes(pattern))) {
-            return true;
-        }
-    }
-    return false;
-}
-
 function hasSponsoredLabelInAria(article) {
-    const nodes = article.querySelectorAll('[aria-label]');
-    for (const node of nodes) {
-        const label = (node.getAttribute('aria-label') || '').trim().toLowerCase();
-        if (SPONSORED_LABELS.some((needle) => label === needle || label.includes(needle))) {
-            return true;
-        }
+    if (!(article instanceof Element)) {
+        return false;
     }
-    return false;
-}
-
-function hasObfuscatedSponsoredHeaderSignals(article) {
-    const headerLinks = article.querySelectorAll('h1 a[role="link"], h2 a[role="link"], h3 a[role="link"], h4 a[role="link"]');
-    for (const link of headerLinks) {
-        const href = (link.getAttribute('href') || '').trim();
-        if (href && href !== '#' && href !== '/') {
+    const nodes = article.querySelectorAll('[aria-label], svg[aria-label], svg title');
+    for (const node of nodes) {
+        const raw = node.getAttribute && node.getAttribute('aria-label')
+            ? node.getAttribute('aria-label').trim()
+            : '';
+        const tc = (node.textContent || '').trim();
+        const combined = `${raw} ${tc}`.trim().toLowerCase();
+        if (!combined) {
             continue;
         }
-        const hasSvgUse = link.querySelector('use') !== null;
-        const hasNoVisibleText = ((link.textContent || '').trim() === '');
-        if (hasSvgUse || hasNoVisibleText) {
+        if (combined.length > MAX_ARIA_SPONSORED_SCAN_LEN) {
+            continue;
+        }
+        if (disclosurePlaintextMatches(combined)) {
             return true;
         }
     }
     return false;
 }
 
-function checkSponsoredPost(article, text) {
-    const adSettingsLink = article.querySelector('a[href*="/ad_preferences/"], a[href*="/ads/about/"]');
-    if (adSettingsLink) {
+/**
+ * Bản sao `AD_LANG_MAP` script.js ~345–412 — dùng cho adString / adStringRegEx / sponsormatchRX.
+ * Tên biến nội bộ đổi để tránh trùng chuỗi với script gốc.
+ */
+const FBP_UI_AD_LANG_MAP = {
+    af_ZA: ['Geborg', 'Adverteerderskakel'],
+    id_ID: ['Bersponsor', 'Tautan pengiklan'],
+    ms_MY: ['Ditaja', 'Pautan pengiklan'],
+    bs_BA: ['Sponzorirano', ''],
+    ca_ES: ['Patrocinat', ''],
+    cs_CZ: ['Sponzorováno', 'Odkaz od inzerenta'],
+    da_DK: ['Sponsoreret', 'Link fra annoncør'],
+    de_DE: ['Anzeige', 'Werbelink'],
+    et_EE: ['Sponsitud', ''],
+    en_GB: ['Sponsored', 'Advertiser link'],
+    en_US: ['Sponsored', 'Advertiser link'],
+    en_PI: ['Chartered', ''],
+    es_LA: ['Publicidad', 'Enlace del anunciante'],
+    es_CO: ['Patrocinado', 'Enlace del anunciante'],
+    es_ES: ['Publicidad', 'Enlace del anunciante'],
+    eu_ES: ['Babestua', ''],
+    tl_PH: ['May Sponsor', 'Link ng advertiser'],
+    fr_CA: ['Commandité', 'Lien de l\’annonceur'],
+    fr_FR: ['Sponsorisé', 'Lien de l\’annonceur'],
+    ga_IE: ['Urraithe', ''],
+    hr_HR: ['Plaćeni oglas', 'Veza oglašivača'],
+    is_IS: ['Kostað', 'Advertiser link'],
+    it_IT: ['Sponsorizzato', "Link dell'inserzionista"],
+    lv_LV: ['Apmaksāta reklāma', ''],
+    lt_LT: ['Rėmėjai', ''],
+    hu_HU: ['Hirdetés', 'Hirdető hivatkozása'],
+    nl_NL: ['Gesponsord', 'Adverteerderslink'],
+    nl_BE: ['Gesponsord', 'Adverteerderslink'],
+    nb_NO: ['Sponset', 'Annonsørlenke'],
+    nn_NO: ['Sponsa', 'Advertiser link'],
+    pl_PL: ['Sponsorowane', 'Link reklamodawcy'],
+    pt_BR: ['Patrocinado', 'Link do anunciante'],
+    pt_PT: ['Patrocinado', 'Ligação do anunciante'],
+    ro_RO: ['Sponsorizat', 'Link promotor'],
+    sq_AL: ['Sponsorizuar', ''],
+    sk_SK: ['Sponzorované', 'Odkaz na inzerenta'],
+    sl_SI: ['Sponzorirano', 'Povezava oglaševalca'],
+    fi_FI: ['Sponsoroitu', 'Mainostajan linkki'],
+    sv_SE: ['Sponsrad', 'Annonsörlänk'],
+    vi_VN: ['Được tài trợ', 'Liên kết của nhà quảng cáo'],
+    tr_TR: ['Sponsorlu', 'Reklamveren bağlantısı'],
+    el_GR: ['Χορηγούμενη', 'Σύνδεσμος διαφημιζόμενου'],
+    bg_BG: ['Спонсорирано', 'Връзка на рекламодателя'],
+    mk_MK: ['Спонзорирано', ''],
+    ru_RU: ['Реклама', 'Ссылка рекламодателя'],
+    sr_RS: ['Спонзорисано', ''],
+    uk_UA: ['Реклама', ''],
+    he_IL: ['ממומן', 'קישור של מפרסם'],
+    ur_PK: ['تعاون کردہ', ''],
+    ar_AR: ['مُموَّل', 'رابط المعلن'],
+    fa_IR: ['دارای پشتیبانی مالی', ''],
+    ne_NP: ['प्रायोजित', ''],
+    hi_IN: ['प्रायोजित', 'विज्ञापनाता का लिंक'],
+    bn_IN: ['সৌজন্যে', ''],
+    pa_IN: ['ਸਰਪ੍ਰਸਤੀ ਪ੍ਰਾਪਤ', ''],
+    gu_IN: ['પ્રાયોજિત', ''],
+    ta_IN: ['ஸ்பான்சர் செய்யப்பட்டது', ''],
+    ml_IN: ['സ്പോൺസർ ചെയ്തത്', ''],
+    th_TH: ['ได้รับการสนับสนุน', 'ลิงก์ของโฆษณา'],
+    my_MM: ['ပံ့ပိုးထားသည်', ''],
+    ko_KR: ['Sponsored', '광고주 링크'],
+    ja_JP: ['広告', '広告主によるリンク'],
+    ja_KS: ['広告', '広告主によるリンク'],
+    zh_CN: ['赞助内容', '广告主链接'],
+    zh_TW: ['贊助', '廣告商連結'],
+    zh_HK: ['贊助', '廣告商連結'],
+};
+
+let _fbpUiSpLocaleCache = null;
+
+function detectFbpUiLangCodeLikeScript() {
+    try {
+        const htmlLang = (document.documentElement && document.documentElement.getAttribute('lang'))
+            ? document.documentElement.getAttribute('lang').replace('-', '_')
+            : '';
+        if (htmlLang && FBP_UI_AD_LANG_MAP[htmlLang]) {
+            return htmlLang;
+        }
+        const links = document.querySelectorAll('link[href*="static.xx.fbcdn.net"]');
+        for (let i = 0; i < links.length; i++) {
+            const src = links[i].getAttribute('href') || '';
+            const m = src.match(/\/(.._..)\//);
+            if (m) {
+                return m[1];
+            }
+        }
+    } catch (e) {
+        /* giống script.js: nuốt */
+    }
+    return 'en_US';
+}
+
+function getFbpUiSponsoredLocaleBundle() {
+    if (_fbpUiSpLocaleCache) {
+        return _fbpUiSpLocaleCache;
+    }
+    let langKey = detectFbpUiLangCodeLikeScript();
+    let primary = 'Sponsored';
+    let secondary = 'Advertiser link';
+    try {
+        const row = FBP_UI_AD_LANG_MAP[langKey];
+        if (row && row[0]) {
+            primary = row[0];
+            secondary = row[1] || secondary;
+        }
+    } catch (e) {
+        langKey = 'en_US';
+    }
+    const primaryLen = primary.length;
+    let charRunRx = null;
+    let storyDotRx = null;
+    try {
+        charRunRx = new RegExp(`[${primary}]{${primaryLen},}`);
+        /* script.js ~11013: không cờ `i` */
+        storyDotRx = new RegExp(`^X?Suggested |FacebookSuggested|sponsoredtriangle|playersPlay Now|${primary} \u00b7`);
+    } catch (e) {
+        charRunRx = null;
+        storyDotRx = null;
+    }
+    _fbpUiSpLocaleCache = {
+        langKey,
+        primary,
+        secondary,
+        primaryLen,
+        charRunRx,
+        storyDotRx,
+    };
+    return _fbpUiSpLocaleCache;
+}
+
+function fbpUiMeasureCanvasWordWidth735(imageData, bgColor) {
+    const data = imageData.data;
+    const bgColorRed = bgColor[0];
+    const bgColorGreen = bgColor[1];
+    const bgColorBlue = bgColor[2];
+    let minX = imageData.width;
+    let maxX = 0;
+    for (let x = 0; x < imageData.width; x++) {
+        for (let y = 0; y < imageData.height; y++) {
+            const index = (y * imageData.width + x) * 4;
+            const red = data[index];
+            const green = data[index + 1];
+            const blue = data[index + 2];
+            if (red !== bgColorRed || green !== bgColorGreen || blue !== bgColorBlue) {
+                if (x < minX) {
+                    minX = x;
+                }
+                if (x > maxX) {
+                    maxX = x;
+                }
+            }
+        }
+    }
+    return maxX - minX + 1;
+}
+
+/** script.js checkforsponsoredpostOct23 ~11066 — chỉ nhánh 71/88/79 (không có currentSPWidth). */
+function fbpUiApplyOct23CanvasHideIfMatch(targetEl) {
+    if (!(targetEl instanceof HTMLElement) || !document.contains(targetEl)) {
+        return;
+    }
+    const canvas = targetEl.querySelector('canvas');
+    if (!canvas || canvas.width === 0) {
+        return;
+    }
+    let ctx;
+    try {
+        ctx = canvas.getContext('2d', { willReadFrequently: true });
+    } catch (e) {
+        return;
+    }
+    if (!ctx) {
+        return;
+    }
+    const bgColorSample = ctx.getImageData(0, 0, 1, 1).data;
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const wordWidth = fbpUiMeasureCanvasWordWidth735(imageData, bgColorSample);
+    if (wordWidth === 71 || wordWidth === 88 || wordWidth === 79) {
+        hideArticle(targetEl);
+    }
+}
+
+function scheduleFbpUiOct23CanvasProbe(storyEl) {
+    try {
+        window.setTimeout(fbpUiApplyOct23CanvasHideIfMatch, 500, storyEl);
+    } catch (e) {
+        /* giống script.js */
+    }
+}
+
+function matchesFbpUiSpObjectOct25(storyEl, charRunRx) {
+    if (!(storyEl instanceof Element) || !charRunRx) {
+        return false;
+    }
+    try {
+        const objectTagsInNode = storyEl.querySelectorAll('object');
+        if (objectTagsInNode.length >= 3) {
+            const targetObject = objectTagsInNode[2];
+            const innerLink = targetObject.querySelector('a');
+            if (innerLink && innerLink.textContent.replace(/-/g, '').match(charRunRx)) {
+                return true;
+            }
+        }
+    } catch (e) {
+        /* script.js: log trong debug — bỏ qua */
+    }
+    return false;
+}
+
+function matchesFbpUiSpSvgJun25(storyEl, charRunRx) {
+    if (!(storyEl instanceof Element) || !charRunRx) {
+        return false;
+    }
+    try {
+        const rawSvg = storyEl.querySelector('SVG:not([class])');
+        const useEl = rawSvg && rawSvg.querySelector('use');
+        const href = useEl && (useEl.getAttribute('xlink:href') || useEl.getAttribute('href'));
+        if (!href) {
+            return false;
+        }
+        const sym = document.querySelector(href);
+        const txt = sym && sym.parentNode && sym.parentNode.textContent;
+        return Boolean(txt && txt.match(charRunRx));
+    } catch (e) {
+        return false;
+    }
+}
+
+function matchesFbpUiSpSvgUseSep22(storyEl, charRunRx) {
+    if (!(storyEl instanceof Element) || !charRunRx) {
+        return false;
+    }
+    try {
+        const svguse = storyEl.querySelector('svg>use');
+        if (!svguse) {
+            return false;
+        }
+        const svgusexlink = svguse.getAttribute('xlink:href') || svguse.getAttribute('href');
+        if (!svgusexlink) {
+            return false;
+        }
+        const symNode = document.querySelector(svgusexlink);
+        if (!symNode) {
+            return false;
+        }
+        let svgusexlinktext = symNode.nextSibling == null
+            ? symNode.textContent
+            : symNode.nextSibling.textContent;
+        if (svgusexlinktext && svgusexlinktext.match(charRunRx)) {
+            return true;
+        }
+        if (storyEl.querySelectorAll('svg>use').length > 1) {
+            const svguse2 = storyEl.querySelectorAll('svg>use')[1];
+            const svgusexlink2 = svguse2 && (svguse2.getAttribute('xlink:href') || svguse2.getAttribute('href'));
+            if (svgusexlink2) {
+                const sym2 = document.querySelector(svgusexlink2);
+                const svgusexlinktext2 = sym2 ? sym2.textContent : '';
+                if (svgusexlinktext2 && (svgusexlinktext + svgusexlinktext2).match(charRunRx)) {
+                    return true;
+                }
+            }
+        }
+    } catch (e) {
+        return false;
+    }
+    return false;
+}
+
+function matchesFbpUiSpAnchorIndices(storyEl, charRunRx) {
+    if (!(storyEl instanceof Element) || !charRunRx) {
+        return false;
+    }
+    const anchors = storyEl.querySelectorAll('a');
+    if (anchors.length <= 2) {
+        return false;
+    }
+    const t3 = anchors[3] && anchors[3].innerText && anchors[3].innerText.match(charRunRx);
+    const t2 = anchors[2] && anchors[2].innerText && anchors[2].innerText.match(charRunRx);
+    return Boolean(t3 || t2);
+}
+
+function matchesFbpUiSpFlexSpans2022(storyEl, primaryWord) {
+    if (!(storyEl instanceof Element) || !primaryWord) {
+        return false;
+    }
+    const flexRoot = storyEl.querySelector('span[style^="flex"]');
+    if (!flexRoot) {
+        return false;
+    }
+    const flexes = storyEl.querySelectorAll('span[style^="flex"]');
+    const adString = primaryWord;
+    const adStringLength = adString.length;
+    const word = [];
+    const word2 = [];
+    for (let ix = 0; ix < flexes.length; ix++) {
+        const y = flexes[ix].textContent;
+        if (ix === adStringLength) {
+            break;
+        }
+        let z;
+        const om = flexes[ix].outerHTML.match(/order: (\d+)/);
+        if (om) {
+            z = om[1];
+        }
+        if (ix > adStringLength - 2) {
+            /* eslint-disable-next-line eqeqeq -- đúng biểu thức script.js ~6610 */
+            if (typeof (word[z]) != undefined) {
+                word2[z] = y;
+            } else {
+                word2[z + 1] = y;
+            }
+        /* eslint-disable-next-line eqeqeq -- đúng biểu thức script.js ~6618 */
+        } else if (typeof (word[z]) != undefined) {
+            word[z] = y;
+            word2[z] = y;
+        } else {
+            word[z + 1] = y;
+            word2[z + 1] = y;
+        }
+    }
+    const wholeword = word.filter(Boolean).join('');
+    const wholeword2 = word2.filter(Boolean).join('');
+    return Boolean(
+        (wholeword.length && adString.match(wholeword))
+        || (wholeword2.length && adString.match(wholeword2)),
+    );
+}
+
+function fbpUiFindFlexContainerHargobind(el, minLen) {
+    let result = null;
+    const style = window.getComputedStyle(el);
+    if (style.display === 'flex' && el.children.length >= minLen && el.textContent.length >= minLen) {
+        return el;
+    }
+    for (const child_index in el.children) {
+        if (el.children[child_index].nodeType === 1
+            && (result = fbpUiFindFlexContainerHargobind(el.children[child_index], minLen))) {
+            return result;
+        }
+    }
+    return null;
+}
+
+function matchesFbpUiSpHargobindFlex(storyEl, primaryWord) {
+    if (!(storyEl instanceof Element) || !primaryWord) {
+        return false;
+    }
+    const adString = primaryWord;
+    const minLen = adString.length;
+    let found_ad = false;
+    const spon_link_containers = storyEl.querySelectorAll('a[role="link"]');
+    for (let f = 0; f < spon_link_containers.length; f++) {
+        const spon_text_parent = fbpUiFindFlexContainerHargobind(spon_link_containers[f], minLen);
+        if (!spon_text_parent) {
+            continue;
+        }
+        let ordered_letters = [];
+        Array.prototype.map.call(spon_text_parent.children, (childEl) => {
+            const st = window.getComputedStyle(childEl);
+            if (st.position === 'relative') {
+                ordered_letters[st.order] = childEl.textContent;
+            }
+        });
+        ordered_letters = ordered_letters.join('');
+        if (ordered_letters === adString) {
+            found_ad = true;
+            break;
+        }
+        const stringSortChars = (text) => text.split('').sort().join('');
+        const letters_exclude_regex = new RegExp(`[^${adString}]`, 'g');
+        const letters_cleaned = stringSortChars(spon_text_parent.textContent).replace(letters_exclude_regex, '');
+        const spon_match_regex = new RegExp(
+            Array.prototype.map.call(stringSortChars(adString).split(''), (chr) => `${chr}{2,}`).join(''),
+        );
+        if (letters_cleaned.match(spon_match_regex)) {
+            found_ad = true;
+            break;
+        }
+    }
+    return found_ad;
+}
+
+function matchesFbpUiSpSubtitleComposite(storyEl, ctx) {
+    if (!(storyEl instanceof Element) || !ctx.charRunRx || !ctx.storyDotRx) {
+        return false;
+    }
+    const { primary, charRunRx, storyDotRx } = ctx;
+    try {
+        const h5div = storyEl.querySelector('h5+div,h6+div');
+        const h5match = h5div && h5div.firstChild && h5div.firstChild.innerText
+            && h5div.firstChild.innerText.match(charRunRx);
+        if (h5match || storyDotRx.test(storyEl.textContent)) {
+            return true;
+        }
+        const branded = storyEl.querySelector(
+            `[data-testid="story-subtitle"] [role="link"],`
+            + `a[ajaxify^="/feed/verified_voice_context"],`
+            + `a[ajaxify^="/feed/branded_content/"],`
+            + `[aria-label="${primary}"]>*,`
+            + 'a[href^="/ads/about/"]>*',
+        );
+        return Boolean(branded);
+    } catch (e) {
+        return false;
+    }
+}
+
+/**
+ * Nhánh sponsoredbox trong cleartheshizzle script.js ~6431–6760 (đồng bộ thứ tự),
+ * tên hàm/biến đổi; không gỡ các nhánh Comet/haystack riêng của extension.
+ */
+function matchesFbpUiCleartheshizzleSponsoredDom(storyEl) {
+    if (!(storyEl instanceof Element)) {
+        return false;
+    }
+    const ctx = getFbpUiSponsoredLocaleBundle();
+    if (!ctx.charRunRx) {
+        return false;
+    }
+    if (matchesFbpUiSpObjectOct25(storyEl, ctx.charRunRx)) {
+        markBlockedByDebug(storyEl, 'sponsored:fbp:oct25-object');
+        return true;
+    }
+    if (matchesFbpUiSpSvgJun25(storyEl, ctx.charRunRx)) {
+        markBlockedByDebug(storyEl, 'sponsored:fbp:jun25-svg');
+        return true;
+    }
+    scheduleFbpUiOct23CanvasProbe(storyEl);
+    if (matchesFbpUiSpSvgUseSep22(storyEl, ctx.charRunRx)) {
+        markBlockedByDebug(storyEl, 'sponsored:fbp:sep22-svg-use');
+        return true;
+    }
+    if (matchesFbpUiSpAnchorIndices(storyEl, ctx.charRunRx)) {
+        markBlockedByDebug(storyEl, 'sponsored:fbp:anchor-index');
+        return true;
+    }
+    if (matchesFbpUiSpFlexSpans2022(storyEl, ctx.primary)) {
+        markBlockedByDebug(storyEl, 'sponsored:fbp:flex-2022');
+        return true;
+    }
+    if (matchesFbpUiSpHargobindFlex(storyEl, ctx.primary)) {
+        markBlockedByDebug(storyEl, 'sponsored:fbp:hargobind-flex');
+        return true;
+    }
+    if (matchesFbpUiSpSubtitleComposite(storyEl, ctx)) {
+        markBlockedByDebug(storyEl, 'sponsored:fbp:subtitle-composite');
+        return true;
+    }
+    return false;
+}
+
+function checkSponsoredPost(article, text, headerText, actionHeaderText) {
+    /* fbpfreestyle + cleartheshizzle (sponsoredbox), sau đó Comet. script.js không sửa. */
+    if (hasScriptJsDataFtEiSponsored(article)) {
+        markBlockedByDebug(article, 'sponsored:fbp:data-ft-ei');
+        return true;
+    }
+    if (hasScriptJsLegacySponsoredAdClass(article)) {
+        markBlockedByDebug(article, 'sponsored:fbp:sponsored_ad');
+        return true;
+    }
+    if (matchesFbpUiCleartheshizzleSponsoredDom(article)) {
+        return true;
+    }
+    if (matchesFbpSponsoredHeaderTextFilter(article)) {
+        markBlockedByDebug(article, 'sponsored:fbp:header_text_filter');
+        return true;
+    }
+    if (matchesFbpSponsoredStoryTextFilter(article)) {
+        markBlockedByDebug(article, 'sponsored:fbp:story_text_filter');
+        return true;
+    }
+    if (article.querySelector('a[href*="/ad_preferences/"]')) {
         markBlockedByDebug(article, 'sponsored:ad_preferences');
         return true;
     }
-
     if (hasSponsoredLabelInAria(article)) {
         markBlockedByDebug(article, 'sponsored:aria');
         return true;
     }
-
-    if (hasObfuscatedSponsoredHeaderSignals(article)) {
-        markBlockedByDebug(article, 'sponsored:obfuscated_header');
+    const labelHaystack = getSponsoredLabelHaystack(article, text, headerText, actionHeaderText);
+    if (matchesSponsoredLabelHaystack(labelHaystack)) {
+        markBlockedByDebug(article, 'sponsored:comet:haystack');
         return true;
     }
-
-    if (hasSponsoredKeyword(text) || hasAriaOrIconSignals(article) || hasAdTrackerLinks(article)) {
-        markBlockedByDebug(article, 'sponsored:keyword_fallback');
-        return true;
-    }
-
     return false;
 }
 
@@ -677,7 +1299,7 @@ function checkMarketplaceAds(article, headerText) {
     }
 
     const quickHeader = (headerText || '').slice(0, 70);
-    if (quickHeader.includes('được tài trợ') || quickHeader.includes('sponsored')) {
+    if (quickHeader.includes('được tài trợ') || EN_SPONSORED_TOKEN_RE.test(quickHeader)) {
         markBlockedByDebug(article, 'marketplace:sponsored_text');
         return true;
     }
@@ -696,15 +1318,159 @@ function markRightColumnHidden(node) {
     node.style.setProperty('display', 'none', 'important');
 }
 
-function markLeftColumnHidden(node) {
-    if (!(node instanceof HTMLElement)) {
+/**
+ * Ghép CSS ẩn link cột trái đúng khối script.js ~3979–4238 (`fbpfreestyle.textContent +=` per tùy chọn).
+ * Neo rail: `_fbpUiLrSsrbNext` / `_fbpUiLrBannerAnimLayout` / `_fbpUiLrBannerSingle` thay `leftrailcode` 1–3.
+ */
+function buildFbpLeftColumnCssFromScriptJs() {
+    const _lrA = _fbpUiLrSsrbNext;
+    const _lrB = _fbpUiLrBannerAnimLayout;
+    const _lrC = _fbpUiLrBannerSingle;
+    const o = fbBlockConfig;
+    let t = '';
+
+    if (o.hideLeftColumnAll && !/facebook\.com\/marketplace/i.test(window.location.href)) {
+        t += ` ${_lrA},${_lrB}, div[role="banner"]+div[data-isanimatedlayout],div[role="banner"]+div+div[data-isanimatedlayout], div[role="banner"]+div div[role="navigation"] div[data-visualcompletion="ignore-dynamic"] {display:none} {display:none !important} body.SettingsPage #leftCol {display:block !important}`;
+    }
+
+    if (o.hideLeftPages) {
+        t += ` ${_lrA} a[href^="https://www.facebook.com/pages/"],li>div>a[href^="https://www.facebook.com/pages/"], div[data-isanimatedlayout] a[href="/pages/?category=your_pages&ref=bookmarks"], div[role="navigation"] li div a[href^="https://www.facebook.com/pages/"] {display:none !important}`;
+    }
+    if (o.hideLeftGroups) {
+        t += ` ${_lrA} a[href^="https://www.facebook.com/groups/?ref="],li>div>a[href^="https://www.facebook.com/groups/?ref="], ${_lrA} a[href$="/groups/"],li>div>a[href$="/groups/"], div[data-isanimatedlayout] a[href="/groups/"],  div[data-isanimatedlayout] div[aria-label="Groups"], div[role="navigation"] li div a[href^="https://www.facebook.com/groups/"]  {display:none !important}`;
+    }
+    if (o.hideLeftFriends) {
+        t += ` ${_lrA} a[href^="https://www.facebook.com/friends/"],li>div>a[href^="https://www.facebook.com/friends/"], div[role="navigation"] li div a[href^="https://www.facebook.com/friends/"] {display:none !important}`;
+    }
+    if (o.hideLeftCreate) {
+        t += ' #createNav, '
+            + '#sideNav div[data-itemid="188619144602540"], #navItem_188619144602540, #createNav a[href^="/pages/create/"],'
+            + '#sideNav div[data-itemid="400915586638539"], #adsNav, #navItem_400915586638539, #createNav a[href^="/campaign/landing.php"],'
+            + '#sideNav div[data-itemid="230259100322928"], #navItem_230259100322928, #createNav a[ajaxify^="/ajax/groups/create_get.php"],'
+            + '#eventsNav div[data-itemid="704148512977427"], #navItem_704148512977427, #createNav a[ajaxify^="/events/dialog/create/"], '
+            + '#navItem_336549256737756 {display:none !important}';
+    }
+    if (o.hideLeftEvents) {
+        t += '  a[href^="https://www.facebook.com/events?source=46"] {display:none}';
+    }
+    if (o.hideLeftGaming) {
+        t += `  ${_lrC} a[href^="/gaming/play/"],${_lrC} a[href^="https://www.facebook.com/instantgames/"],li>div>a[href^="https://www.facebook.com/games/"], div[role="banner"]~div[data-isanimatedlayout] a[href^="/gaming/play"], div[class="__fb-light-mode"] a[href^="https://www.facebook.com/gaming/play/"], div[class="__fb-light-mode"] a[href^="https://www.facebook.com/instantgames/"] {display:none !important}`;
+    }
+    if (o.hideLeftFundraisers) {
+        t += `  ${_lrC} a[href^="https://www.facebook.com/fundraisers/"],li>div>a[href^="https://www.facebook.com/fundraisers/"], div[class="__fb-light-mode"] a[href^="https://www.facebook.com/fundraisers/"] {display:none !important}`;
+    }
+    if (o.hideLeftMemories) {
+        t += ` ${_lrC} a[href^="https://www.facebook.com/onthisday/"],  ${_lrA} a[href^="https://www.facebook.com/onthisday/"], ${_lrB} a[href*="/onthisday/"],li>div>a[href*="/memories/"], div[class="__fb-light-mode"] a[href^="https://www.facebook.com/onthisday/"], div[data-isanimatedlayout] a[href^="https://www.facebook.com/onthisday/"] {display:none !important}`;
+    }
+    if (o.hideLeftWeather) {
+        t += ` ${_lrA} a[href^="https://www.facebook.com/weather/"],li>div>a[href^="https://www.facebook.com/weather/"] {display:none !important}`;
+    }
+    if (o.hideLeftProfessional) {
+        t += ` ${_lrA} a[href^="https://www.facebook.com/creatorstudio/"],li>div>a[href^="https://www.facebook.com/creatorstudio/"] {display:none !important}`;
+        t += ' #navItem_151408195724475 {display:none !important}';
+    }
+    if (o.hideLeftOffers) {
+        t += ` ${_lrA} a[href^="https://www.facebook.com/offers/"],li>div>a[href^="https://www.facebook.com/offers/"] {display:none !important}`;
+    }
+    if (o.hideLeftSaved) {
+        t += ` ${_lrC} a[href^="https://www.facebook.com/saved/"], ${_lrA} a[href^="https://www.facebook.com/saved/"],li>div>a[href^="https://www.facebook.com/saved/"], div[class="__fb-light-mode"] a[href^="https://www.facebook.com/saved/"] {display:none !important}`;
+    }
+    if (o.hideLeftMarketplace) {
+        t += ` #pagelet_marketplace_recently_viewed_rhc, #pagelet_marketplace_recently_viewed_candidate_rhc, #pagelet_marketplace_rental_rhc, #pagelet_group_marketplace_rental_rhc, #pagelet_marketplace_new_user_vehicle_rhc, #pagelet_marketplace_bsg_recently_viewed_rhc, #pagelet_marketplace_new_user_top_picks_rhc, ${_lrA} a[href="https://www.facebook.com/marketplace/?ref=bookmark"], ${_lrC} a[href="https://www.facebook.com/marketplace/?ref=bookmark"], div[data-isanimatedlayout] a[href="/marketplace/?ref=apps_tab"],  div[data-isanimatedlayout] a[aria-label="Marketplace"] {display:none !important}`;
+    }
+    if (o.hideLeftShops) {
+        t += ' #navItem_181728832201978 {display:none !important}';
+    }
+    if (o.hideLeftPayAndOrders) {
+        t += ` ${_lrC} a[href^="https://secure.facebook.com/facebook_pay/"], li>div>a[href^="https://secure.facebook.com/facebook_pay/"], div[class="__fb-light-mode"] a[href^="https://secure.facebook.com/facebook_pay/"] {display:none !important}`;
+    }
+    if (o.hideLeftOrderFood) {
+        t += ' #navItem_766859123481602 {display:none}';
+    }
+    if (o.hideLeftLiveVideos) {
+        t += ` ${_lrC} a[href^="https://www.facebook.com/watch/live/"] ,li>div>a[href^="https://www.facebook.com/watch/live/"], div[data-pagelet="page"] a[href^="https://www.facebook.com/watch/live/"], a[href="https://www.facebook.com/watch/live/?ref=mega_menu"] {display:none !important}`;
+    }
+    if (o.hideLeftBloodDonations) {
+        t += ` ${_lrC} a[href*="/blooddonations/"],li>div>a[href*="/blooddonations/"], div[class="__fb-light-mode"] a[href*="/blooddonations/"] {display:none !important}`;
+    }
+    if (o.hideLeftAdsManager) {
+        t += ` ${_lrC} a[href^="https://www.facebook.com/ads/activity/"], li>div>a[href^="https://www.facebook.com/ads/activity/"], div[class="__fb-light-mode"] [href^="https://www.facebook.com/ads/activity/"] {display:none !important}`;
+    }
+    if (o.hideLeftClimateScience) {
+        t += ` ${_lrC} a[href*="/climatescienceinfo/"],li>div>a[href*="/climatescienceinfo/"], div[class="__fb-light-mode"] a[href^="https://www.facebook.com/climatescienceinfo/"] {display:none !important}`;
+    }
+    if (o.hideLeftReels) {
+        t += ` ${_lrC} div[data-visualcompletion="ignore-dynamic"]>a[href*="/reel/"],li>div>a[href*="/reel/"],div[role="navigation"] li div a[href^="https://www.facebook.com/reel/"] {display:none !important}`;
+    }
+    if (o.hideLeftMovies) {
+        t += ` ${_lrC} a[href^="https://www.facebook.com/movies/"],li>div>a[href^="https://www.facebook.com/movies/"] {display:none !important}`;
+    }
+    if (o.hideLeftMessenger) {
+        t += ` ${_lrC} a[href^="https://www.facebook.com/messages/t/"],li>div>a[href^="https://www.facebook.com/messages/t/"], div[class="__fb-light-mode"] a[href^="https://www.facebook.com/messages/t/"] {display:none !important}`;
+    }
+    if (o.hideLeftWatch) {
+        t += ` ${_lrB} a[href*="/watch/"], a[href="https://www.facebook.com/watch/?ref=mega_menu"], div[role="banner"]+div[data-isanimatedlayout] a[href*="/watch/"], div[role="navigation"] li div[data-visualcompletion="ignore-dynamic"] a[href="https://www.facebook.com/watch/"], div[role="navigation"] li div a[href^="https://www.facebook.com/watch/"] {display:none !important}`;
+    }
+    if (o.hideLeftShortcuts) {
+        t += ' #pinnedNav, div[role="navigation"] div.sj5x9vvc+ul, div[data-isanimatedlayout] div[aria-label="Shortcuts"] {display:none}';
+        t += ` ${_lrC} a[href*="?sk=favorites"],li>div>a[href*="?sk=favorites"] {display:none !important}`;
+    }
+    if (o.hideLeftJobs) {
+        t += ` ${_lrC} a[href^="https://www.facebook.com/jobs/"],li>div>a[href^="https://www.facebook.com/jobs/"] {display:none}`;
+    }
+    if (o.hideLeftGameStreaming) {
+        t += ` ${_lrC} a[href^="https://www.facebook.com/gaming/"],li>div>a[href^="https://www.facebook.com/gaming/"],div[data-isanimatedlayout] a[href="/gaming/?ref=games_tab"], div[class="__fb-light-mode"] a[href^="https://www.facebook.com/gaming/?external_ref"] {display:none !important}`;
+    }
+    if (o.hideLeftVotingInformation) {
+        t += ` ${_lrC} a[href*="/votinginformationcenter"],li>div>a[href*="/votinginformationcenter"] {display:none !important}`;
+    }
+    if (o.hideLeftCrisisResponse) {
+        t += ` ${_lrC} a[href^="https://www.facebook.com/crisisresponse/"],li>div>a[href^="https://www.facebook.com/crisisresponse/"], div[class="__fb-light-mode"] a[href^="https://www.facebook.com/crisisresponse/"] {display:none !important}`;
+    }
+    if (o.hideLeftNews) {
+        t += ` ${_lrC} a[href^="https://www.facebook.com/news/"],li>div>a[href^="https://www.facebook.com/news/"], div[class="__fb-light-mode"] a[href^="https://www.facebook.com/news/"], a[href="/news/"] {display:none !important}`;
+    }
+    if (o.hideLeftMetaAI) {
+        t += ' div[role="navigation"] a[href^="https://l.facebook.com/l.php?u=https%3A%2F%2Fwww.meta.ai%2F"], div[role="navigation"] a[href^="https://www.meta.ai"] {display:none !important}';
+    }
+    if (o.hideLeftFeedsMenu) {
+        t += ` ${_lrA} a[href*="/feeds/"],li>div>a[href*="/feeds/"], ${_lrC} a[href*="/feeds/"], div[data-isanimatedlayout] a[href*="/feeds/"] {display:none !important}`;
+    }
+    if (o.hideLeftMusic) {
+        t += ' #sideNav div[data-itemid="119960514742544"], #navItem_119960514742544 {display:none !important}';
+    }
+
+    return t;
+}
+
+function syncLeftColumnFbpStylesheet() {
+    const prev = document.getElementById(LEFT_COL_FBP_CSS_STYLE_ID);
+    if (prev) {
+        prev.remove();
+    }
+    const css = buildFbpLeftColumnCssFromScriptJs();
+    if (!css || !String(css).trim()) {
         return;
     }
-    if (node.getAttribute(LEFT_COL_HIDDEN_FLAG) === 'true') {
-        return;
-    }
-    node.setAttribute(LEFT_COL_HIDDEN_FLAG, 'true');
-    node.style.setProperty('display', 'none', 'important');
+    const st = document.createElement('style');
+    st.id = LEFT_COL_FBP_CSS_STYLE_ID;
+    st.textContent = css;
+    (document.head || document.documentElement).appendChild(st);
+}
+
+function isAnyLeftColumnFbpOptionOn() {
+    const o = fbBlockConfig;
+    return Boolean(
+        o.hideLeftColumnAll || o.hideLeftPages || o.hideLeftGroups || o.hideLeftFriends
+        || o.hideLeftCreate || o.hideLeftEvents || o.hideLeftGaming || o.hideLeftFundraisers
+        || o.hideLeftMemories || o.hideLeftWeather || o.hideLeftProfessional || o.hideLeftOffers
+        || o.hideLeftSaved || o.hideLeftMarketplace || o.hideLeftShops || o.hideLeftPayAndOrders
+        || o.hideLeftOrderFood || o.hideLeftLiveVideos || o.hideLeftBloodDonations || o.hideLeftAdsManager
+        || o.hideLeftClimateScience || o.hideLeftReels || o.hideLeftMovies || o.hideLeftMessenger
+        || o.hideLeftWatch || o.hideLeftShortcuts || o.hideLeftJobs || o.hideLeftGameStreaming
+        || o.hideLeftVotingInformation || o.hideLeftCrisisResponse || o.hideLeftNews || o.hideLeftMetaAI
+        || o.hideLeftFeedsMenu || o.hideLeftMusic,
+    );
 }
 
 function findRightColumnRoot() {
@@ -761,21 +1527,7 @@ function runRightColumnPurifier() {
             markRightColumnHidden(wrapper);
         } else if (shouldHideRightColumnWidget('hideRightFriendRequests') && isMatch('friendRequests')) {
             markRightColumnHidden(wrapper);
-        } else if (shouldHideRightColumnWidget('hideRightYourPages') && isMatch('yourPages')) {
-            markRightColumnHidden(wrapper);
-        } else if (shouldHideRightColumnWidget('hideRightRecommendedPages') && isMatch('recommendedPages')) {
-            markRightColumnHidden(wrapper);
-        } else if (shouldHideRightColumnWidget('hideRightSuggestedGroups') && isMatch('suggestedGroups')) {
-            markRightColumnHidden(wrapper);
         } else if (shouldHideRightColumnWidget('hideRightEvents') && isMatch('events')) {
-            markRightColumnHidden(wrapper);
-        } else if (shouldHideRightColumnWidget('hideRightGameAppRequests') && isMatch('gamesAndApps')) {
-            markRightColumnHidden(wrapper);
-        } else if (shouldHideRightColumnWidget('hideRightMarketplacePanel') && isMatch('marketplace')) {
-            markRightColumnHidden(wrapper);
-        } else if (shouldHideRightColumnWidget('hideRightPokes') && isMatch('pokes')) {
-            markRightColumnHidden(wrapper);
-        } else if (shouldHideRightColumnWidget('hideRightWatch') && isMatch('watch')) {
             markRightColumnHidden(wrapper);
         }
     });
@@ -800,14 +1552,7 @@ function startRightColumnManager() {
         || fbBlockConfig.hideTrendingPosts
         || fbBlockConfig.hideRightBirthdays
         || fbBlockConfig.hideRightFriendRequests
-        || fbBlockConfig.hideRightYourPages
-        || fbBlockConfig.hideRightRecommendedPages
-        || fbBlockConfig.hideRightSuggestedGroups
         || fbBlockConfig.hideRightEvents
-        || fbBlockConfig.hideRightGameAppRequests
-        || fbBlockConfig.hideRightMarketplacePanel
-        || fbBlockConfig.hideRightPokes
-        || fbBlockConfig.hideRightWatch
         || fbBlockConfig.hideRightSponsoredAds;
     if (!shouldRun) {
         return;
@@ -821,307 +1566,77 @@ function runLeftColumnPurifier() {
     if (document.visibilityState !== 'visible') {
         return;
     }
-
-    const navArea = document.querySelector('[role="navigation"]');
-    if (!(navArea instanceof HTMLElement)) {
-        return;
-    }
-
-    if (fbBlockConfig.hideLeftColumnAll) {
-        const leftMasterCol = navArea.parentElement;
-        if (leftMasterCol instanceof HTMLElement) {
-            markLeftColumnHidden(leftMasterCol);
-        }
-        return;
-    }
-
-    const navLinks = navArea.querySelectorAll('a[href]');
-    const configsToMap = [
-        { id: 'hideLeftPages', dict: 'pages' },
-        { id: 'hideLeftGroups', dict: 'groups' },
-        { id: 'hideLeftWatch', dict: 'watch' },
-        { id: 'hideLeftMarketplace', dict: 'marketplace' },
-        { id: 'hideLeftMemories', dict: 'memories' },
-        { id: 'hideLeftSaved', dict: 'saved' },
-        { id: 'hideLeftEvents', dict: 'events' },
-        { id: 'hideLeftGaming', dict: 'gaming' },
-        { id: 'hideLeftAdsManager', dict: 'adsManager' },
-        { id: 'hideLeftFundraisers', dict: 'fundraisers' },
-        { id: 'hideLeftBloodDonations', dict: 'bloodDonations' },
-        { id: 'hideLeftClimateScience', dict: 'climateScience' },
-        { id: 'hideLeftProfessional', dict: 'professional' },
-        { id: 'hideLeftFeedsMenu', dict: 'feedsMenu' },
-        { id: 'hideLeftPayAndOrders', dict: 'payAndOrders' },
-    ];
-
-    navLinks.forEach((linkObj) => {
-        const theUrl = (linkObj.getAttribute('href') || '').toLowerCase();
-        if (!theUrl) {
-            return;
-        }
-        const itemWrapper = linkObj.closest('li') || linkObj.closest('div[class*="x1v"]') || linkObj.parentElement;
-        if (!(itemWrapper instanceof HTMLElement) || itemWrapper.style.display === 'none') {
-            return;
-        }
-
-        let shouldHide = false;
-        for (const map of configsToMap) {
-            if (!fbBlockConfig[map.id]) {
-                continue;
-            }
-            const dict = LEFT_NAV_DICTIONARY[map.dict];
-            if (Array.isArray(dict) && dict.some((pathStr) => theUrl.includes(pathStr))) {
-                shouldHide = true;
-                break;
-            }
-        }
-
-        if (shouldHide) {
-            markLeftColumnHidden(itemWrapper);
-        }
-    });
-
-    if (fbBlockConfig.hideLeftShortcuts) {
-        const headers = navArea.querySelectorAll('span, h3');
-        headers.forEach((header) => {
-            const txt = (header.textContent || '').trim().toLowerCase();
-            if (txt !== 'lối tắt' && txt !== 'your shortcuts') {
-                return;
-            }
-            const shortcutWrapperBlock = header.closest('div[class*="x1"]')
-                || header.parentElement?.parentElement
-                || null;
-            if (shortcutWrapperBlock instanceof HTMLElement) {
-                markLeftColumnHidden(shortcutWrapperBlock);
-            }
-        });
-    }
+    syncLeftColumnFbpStylesheet();
 }
 
 function startLeftColumnManager() {
-    const shouldRun = fbBlockConfig.hideLeftColumnAll
-        || fbBlockConfig.hideLeftPages
-        || fbBlockConfig.hideLeftGroups
-        || fbBlockConfig.hideLeftWatch
-        || fbBlockConfig.hideLeftMarketplace
-        || fbBlockConfig.hideLeftMemories
-        || fbBlockConfig.hideLeftSaved
-        || fbBlockConfig.hideLeftEvents
-        || fbBlockConfig.hideLeftGaming
-        || fbBlockConfig.hideLeftAdsManager
-        || fbBlockConfig.hideLeftFundraisers
-        || fbBlockConfig.hideLeftBloodDonations
-        || fbBlockConfig.hideLeftClimateScience
-        || fbBlockConfig.hideLeftProfessional
-        || fbBlockConfig.hideLeftFeedsMenu
-        || fbBlockConfig.hideLeftPayAndOrders
-        || fbBlockConfig.hideLeftShortcuts;
-    if (!shouldRun) {
+    if (!isAnyLeftColumnFbpOptionOn()) {
         return;
     }
 
-    window.setTimeout(runLeftColumnPurifier, 1000);
+    window.setTimeout(runLeftColumnPurifier, 400);
     leftColumnTimer = window.setInterval(runLeftColumnPurifier, LEFT_COL_SCAN_INTERVAL_MS);
 }
 
 /**
- * CSS ẩn top nav: kết hợp aria-label (đa ngôn ngữ) với bộ chọn theo href / legacy
- * từ script.js (FB Purity ~3734–3795, ~4471–4496) để vẫn khớp khi Facebook đổi nhãn.
+ * Ghép CSS top bar đúng chuỗi script.js: `fbpfreestyle` ~3826–3868, 3880–3881 (`hidesearchbox`, `topnav*`, `hidepagestopnav`, `homelink`);
+ * Messenger / Notifications / Create từ `fbpboxstyles` ~4578–4588 (`hidemesstopnav`, `hidenotiftopnav`, `hidecreatetopnav`).
+ * `_fbpUiTpBn` thay literal `div[role="banner"]` — thuật toán giữ nguyên.
  */
-function getTopNavCssRules() {
-    const cssRules = [];
-    const B = 'div[role="banner"]';
+function buildFbpTopNavCssFromScriptJs() {
+    const B = _fbpUiTpBn;
+    const o = fbBlockConfig;
+    let t = '';
 
-    if (fbBlockConfig.freezeTopNavBar) {
-        cssRules.push(`
-            ${B},
-            div[aria-label="Facebook"][role="navigation"] {
-                position: sticky !important;
-                top: 0 !important;
-                z-index: 99999 !important;
-            }
-        `);
+    if (o.hideSearchBoxAndPopup) {
+        t += ' #blueBarDOMInspector div[role="search"], #searchBarClickRef,' + B + ' div[data-testid="Keycommand_wrapper"], ' + B + '>div>div>div>div>div>div>label[class],' + B + '>div>div>div>div>div>div>div>div>div>div>div>label[class]  {display:none}';
     }
 
-    if (fbBlockConfig.hideSearchBoxAndPopup) {
-        cssRules.push(`
-            #blueBarDOMInspector div[role="search"],
-            #searchBarClickRef,
-            ${B} div[data-testid="Keycommand_wrapper"],
-            ${B} > div > div > div > div > div > div > label[class],
-            ${B} > div > div > div > div > div > div > div > div > div > div > div > label[class],
-            ${B} input[type="search"],
-            input[type="search"][aria-label*="Search"],
-            input[type="search"][aria-label*="Tìm kiếm"],
-            label[aria-label*="Tìm kiếm"],
-            label[aria-label*="Search"],
-            ${B} div[role="combobox"] + div[role="listbox"],
-            div[aria-label="Tìm kiếm gần đây"],
-            div[aria-label="Recent searches"],
-            #facebar_typeahead_view_list,
-            div.litestandTypeaheadview[data-click="Search"],
-            #facebar_typeahead_view_list._21c._2yob,
-            #blueBarDOMInspector div.injectedSearchSuggestion,
-            div._21es {
-                display: none !important;
-            }
-        `);
+    if (o.hideNavReels) {
+        t += ' ' + B + ' a[href*="/watch/"],a[href="/watch/?ref=tab"], ' + B + ' a[href="/reel/?s=tab"] {display:none}';
     }
 
-    const pushHide = (selectors) => {
-        const list = selectors.filter(Boolean);
-        if (list.length === 0) {
-            return;
-        }
-        cssRules.push(`${list.join(',\n')} {\n    display: none !important;\n}`);
-    };
-
-    if (fbBlockConfig.hideNavHome) {
-        pushHide([
-            '#blueBarDOMInspector a[data-gt*="home_chrome"]',
-            `${B} a[aria-label^="Home"]`,
-            `${B} a[aria-label^="Trang chủ"]`,
-            `${B} a[role="link"][href="/"]`,
-            `${B} a[aria-label="Trang chủ"]`,
-            `${B} a[aria-label="Home"]`,
-            `${B} div[aria-label="Trang chủ"]`,
-            `${B} div[aria-label="Home"]`,
-        ]);
+    if (o.hideNavNews) {
+        t += ' ' + B + ' a[href^="/news/"] {display:none}';
     }
 
-    if (fbBlockConfig.hideNavPages) {
-        pushHide([
-            `${B} a[href^="/pages/"]`,
-            'div[data-isanimatedlayout] a[href="/pages/?category=your_pages&ref=bookmarks"]',
-            `${B} a[aria-label="Trang"]`,
-            `${B} a[aria-label="Pages"]`,
-            `${B} div[aria-label="Trang"]`,
-            `${B} div[aria-label="Pages"]`,
-        ]);
+    if (o.hideNavEvents) {
+        t += ' ' + B + ' a[href^="/events/"] {display:none}';
     }
 
-    if (fbBlockConfig.hideNavReels) {
-        pushHide([
-            `${B} a[href*="/watch/"]`,
-            `${B} a[href="/watch/?ref=tab"]`,
-            `${B} a[href="/reel/?s=tab"]`,
-            `${B} a[href^="/reels/"]`,
-            `${B} a[aria-label="Reels"]`,
-            `${B} div[aria-label="Reels"]`,
-        ]);
+    if (o.hideNavGroups) {
+        t += ' ' + B + ' a[href^="/groups/"], div[data-isanimatedlayout] a[href="/groups/"] {display:none}';
     }
 
-    if (fbBlockConfig.hideNavMarketplace) {
-        pushHide([
-            `${B} a[href*="/marketplace/"]`,
-            `${B} a[href="/marketplace/?ref=app_tab"]`,
-            `${B} a[aria-label="Marketplace"]`,
-            `${B} div[aria-label="Marketplace"]`,
-        ]);
+    if (o.hideNavGaming) {
+        t += ' ' + B + ' a[href*="/gaming/"], div[data-isanimatedlayout] a[href="/gaming/?ref=games_tab"] {display: none !important}';
     }
 
-    if (fbBlockConfig.hideNavGroups) {
-        pushHide([
-            `${B} a[href^="/groups/"]`,
-            'div[data-isanimatedlayout] a[href="/groups/"]',
-            `${B} a[aria-label="Nhóm"]`,
-            `${B} a[aria-label="Groups"]`,
-            `${B} div[aria-label="Nhóm"]`,
-            `${B} div[aria-label="Groups"]`,
-        ]);
+    if (o.hideNavMarketplace) {
+        t += ' ' + B + ' a[href*="/marketplace/"], a[href="/marketplace/?ref=app_tab"] {display:none}';
     }
 
-    if (fbBlockConfig.hideNavGaming) {
-        pushHide([
-            `${B} a[href*="/gaming/"]`,
-            'div[data-isanimatedlayout] a[href="/gaming/?ref=games_tab"]',
-            `${B} a[aria-label="Trò chơi"]`,
-            `${B} a[aria-label="Gaming"]`,
-            `${B} a[aria-label="Gaming Video"]`,
-            `${B} div[aria-label="Trò chơi"]`,
-            `${B} div[aria-label="Gaming"]`,
-            `${B} div[aria-label="Gaming Video"]`,
-        ]);
+    if (o.hideNavPages) {
+        t += ' ' + B + ' a[href^="/pages/"], div[data-isanimatedlayout] a[href="/pages/?category=your_pages&ref=bookmarks"] {display: none !important}';
     }
 
-    if (fbBlockConfig.hideNavNews) {
-        pushHide([
-            `${B} a[href^="/news/"]`,
-            `${B} a[aria-label="Tin tức"]`,
-            `${B} a[aria-label="News"]`,
-            `${B} div[aria-label="Tin tức"]`,
-            `${B} div[aria-label="News"]`,
-        ]);
+    if (o.hideNavHome) {
+        t += ' #blueBarDOMInspector a[data-gt*="home_chrome"], ' + B + ' a[aria-label^="Home"] {display:none}';
     }
 
-    if (fbBlockConfig.hideNavEvents) {
-        pushHide([
-            `${B} a[href^="/events/"]`,
-            `${B} a[aria-label="Sự kiện"]`,
-            `${B} a[aria-label="Events"]`,
-            `${B} div[aria-label="Sự kiện"]`,
-            `${B} div[aria-label="Events"]`,
-        ]);
+    if (o.hideNavMessenger) {
+        t += '#pagelet_bluebar a[name="mercurymessages"], ' + B + ' div[aria-label="Messenger"], a[aria-label^="Messenger"]{display:none}';
     }
 
-    if (fbBlockConfig.hideNavCreate) {
-        pushHide([
-            '#creation_hub_entrypoint',
-            `${B} div[aria-label="Create"]`,
-            `${B} div[aria-label="Tạo"]`,
-            `${B} a[aria-label="Tạo"]`,
-            `${B} a[aria-label="Create"]`,
-        ]);
+    if (o.hideNavNotifications) {
+        t += '#fbNotificationsJewel, ' + B + ' div[aria-label^="Notifications"],a[aria-label^="Notifications"] {display:none !important}';
     }
 
-    if (fbBlockConfig.hideNavMessenger) {
-        pushHide([
-            '#pagelet_bluebar a[name="mercurymessages"]',
-            `${B} div[aria-label="Messenger"]`,
-            `${B} a[aria-label^="Messenger"]`,
-            `${B} a[aria-label="Tin nhắn"]`,
-            `${B} div[aria-label="Tin nhắn"]`,
-        ]);
+    if (o.hideNavCreate) {
+        t += ' #creation_hub_entrypoint, ' + B + ' div[aria-label="Create"] {display:none}';
     }
 
-    if (fbBlockConfig.hideNavNotifications) {
-        pushHide([
-            '#fbNotificationsJewel',
-            `${B} div[aria-label^="Notifications"]`,
-            `${B} a[aria-label^="Notifications"]`,
-            `${B} a[aria-label="Thông báo"]`,
-            `${B} div[aria-label="Thông báo"]`,
-        ]);
-    }
-
-    if (fbBlockConfig.hideNavFriendRequests) {
-        pushHide([
-            '#fbRequestsJewel',
-            '#fb2k_pagelet_bluebar a.jewelButton[data-gt=\'{"ua_id":"jewel:requests"}\']',
-            `${B} a[href="/friends/"]`,
-            `${B} a[aria-label="Bạn bè"]`,
-            `${B} a[aria-label="Friends"]`,
-            `${B} a[aria-label="Friend requests"]`,
-            `${B} div[aria-label="Bạn bè"]`,
-            `${B} div[aria-label="Friends"]`,
-            `${B} div[aria-label="Friend requests"]`,
-        ]);
-    }
-
-    if (fbBlockConfig.hideNavAccountSwitcher) {
-        pushHide([
-            'div#pagelet_bluebar a[data-tooltip-content="Account switcher"]',
-            'div#pagelet_bluebar a[data-tooltip-content="Account Switcher"]',
-            `${B} a[aria-label="Chuyển tài khoản"]`,
-            `${B} a[aria-label="Switch Accounts"]`,
-            `${B} a[aria-label="Chuyển trang profile"]`,
-            `${B} div[aria-label="Chuyển tài khoản"]`,
-            `${B} div[aria-label="Switch Accounts"]`,
-            `${B} div[aria-label="Chuyển trang profile"]`,
-        ]);
-    }
-
-    return cssRules;
+    return t;
 }
 
 function injectTopNavStyles() {
@@ -1129,90 +1644,18 @@ function injectTopNavStyles() {
     if (existing) {
         existing.remove();
     }
-    const cssRules = getTopNavCssRules();
-    if (cssRules.length === 0) {
+    const css = buildFbpTopNavCssFromScriptJs();
+    if (!css || !String(css).trim()) {
         return;
     }
     const styleTag = document.createElement('style');
     styleTag.id = TOP_NAV_STYLE_ID;
-    styleTag.textContent = cssRules.join('\n');
+    styleTag.textContent = css;
     document.head.appendChild(styleTag);
 }
 
-function triggerLogoutFlow() {
-    const toggleMenuBtn = document.querySelector(
-        'div[role="banner"] div[aria-label*="Trang cá nhân"], div[role="banner"] div[aria-label*="Tài khoản"], div[role="banner"] div[aria-label*="Account"]',
-    );
-    if (toggleMenuBtn instanceof HTMLElement) {
-        (toggleMenuBtn.closest('[role="button"]') || toggleMenuBtn).click();
-    }
-    window.setTimeout(() => {
-        const menuItems = document.querySelectorAll('div[role="menuitem"] span[dir="auto"]');
-        menuItems.forEach((item) => {
-            const text = (item.textContent || '').trim().toLowerCase();
-            if (text === 'đăng xuất' || text === 'log out' || text === 'logout') {
-                const menuItem = item.closest('div[role="menuitem"]');
-                if (menuItem instanceof HTMLElement) {
-                    menuItem.click();
-                }
-            }
-        });
-    }, 320);
-}
-
-function scheduleTopNavLogoutResync() {
-    if (!fbBlockConfig.showLogoutButton) {
-        return;
-    }
-    window.clearTimeout(topNavLogoutDebounceTimer);
-    topNavLogoutDebounceTimer = window.setTimeout(() => {
-        topNavLogoutDebounceTimer = null;
-        injectLogoutShortcut();
-    }, TOP_NAV_LOGOUT_RESYNC_DEBOUNCE_MS);
-}
-
-function injectLogoutShortcut() {
-    if (!fbBlockConfig.showLogoutButton) {
-        return;
-    }
-    const existingLogout = document.getElementById(QUICK_LOGOUT_ID);
-    if (existingLogout) {
-        if (existingLogout.isConnected) {
-            return;
-        }
-        existingLogout.remove();
-    }
-    const rightControlGroup = document.querySelector('div[role="banner"] > div:last-child');
-    if (!(rightControlGroup instanceof HTMLElement)) {
-        return;
-    }
-    const logOutBtn = document.createElement('div');
-    logOutBtn.id = QUICK_LOGOUT_ID;
-    logOutBtn.style.cssText = [
-        'background-color:#e4e6eb',
-        'border-radius:50%',
-        'width:40px',
-        'height:40px',
-        'display:flex',
-        'align-items:center',
-        'justify-content:center',
-        'cursor:pointer',
-        'margin-left:8px',
-        'font-weight:bold',
-        'font-size:11px',
-        'color:#e40000',
-        'z-index:9999',
-    ].join(';');
-    logOutBtn.textContent = 'OUT';
-    logOutBtn.title = 'Đăng xuất nhanh';
-    logOutBtn.addEventListener('click', triggerLogoutFlow);
-    rightControlGroup.appendChild(logOutBtn);
-}
-
 function startTopNavManager() {
-    const shouldRun = fbBlockConfig.freezeTopNavBar
-        || fbBlockConfig.showLogoutButton
-        || fbBlockConfig.hideSearchBoxAndPopup
+    const shouldRun = fbBlockConfig.hideSearchBoxAndPopup
         || fbBlockConfig.hideNavHome
         || fbBlockConfig.hideNavPages
         || fbBlockConfig.hideNavReels
@@ -1223,19 +1666,12 @@ function startTopNavManager() {
         || fbBlockConfig.hideNavMessenger
         || fbBlockConfig.hideNavNotifications
         || fbBlockConfig.hideNavNews
-        || fbBlockConfig.hideNavEvents
-        || fbBlockConfig.hideNavFriendRequests
-        || fbBlockConfig.hideNavAccountSwitcher;
+        || fbBlockConfig.hideNavEvents;
     if (!shouldRun) {
         return;
     }
     topNavInitTimer = window.setTimeout(() => {
         injectTopNavStyles();
-        injectLogoutShortcut();
-        if (fbBlockConfig.showLogoutButton && !topNavObserver) {
-            topNavObserver = new MutationObserver(() => scheduleTopNavLogoutResync());
-            topNavObserver.observe(document.documentElement, { childList: true, subtree: true });
-        }
     }, 500);
 }
 
@@ -1282,19 +1718,6 @@ function parseHashtagFilters(rawValue) {
         }
     });
     return uniq;
-}
-
-function parseUserTextKeywords(rawValue) {
-    if (typeof rawValue !== 'string' || rawValue.trim() === '') {
-        return [];
-    }
-    const unique = new Set();
-    rawValue
-        .split(/\r?\n|,/)
-        .map((word) => word.trim().toLowerCase())
-        .filter(Boolean)
-        .forEach((word) => unique.add(word));
-    return Array.from(unique);
 }
 
 function isFacebookHostname(hostname) {
@@ -1478,13 +1901,14 @@ function isLikelyFacebookActorHref(href) {
  * - Haystack: caption, header, action header, message/story_message roles, post_message, tên actor (profile_name), alt ảnh,
  *   hashtag từ href, thêm một lát extractVisibleText (cap); chuỗi gộp cắt tối đa ALLOW_KEYWORD_HAYSTACK_MAX ký tự.
  * - List từ khóa: mỗi dòng một hoặc nhiều cụm cách nhau bằng dấu phẩy/chấm phẩy; ít nhất một cụm là chuỗi con (không phân biệt hoa thường).
+ * - Bộ lọc văn bản theo từ khóa (regex + OCR) đã gỡ khỏi dashboard; chỉ còn lọc URL / cụm cho phép ở đây và các bộ lọc khác (hashtag, sponsored, …).
  *
  * Kết hợp
- * - Khi **cả** Allow URL **và** Allow từ khóa đều bật (và có dữ liệu), bài phải thỏa **cả hai** (AND).
+ * - Khi **cả** Allow URL **và** Allow từ khóa đều bật (và có dữ liệu), bài được giữ nếu thỏa **một trong hai** (OR).
+ * - Chỉ một trong hai bật thì vẫn chỉ áp dụng điều kiện đó.
  *
  * Thứ tự gate trong shouldHideArticle (trước các bộ lọc ẩn bài khác)
- * 1) isArticleAllowedByUrl — nếu false → ẩn.
- * 2) isArticleAllowedByPostKeywords — nếu false → ẩn.
+ * 1) Kết hợp isArticleAllowedByUrl và isArticleAllowedByPostKeywords theo OR hoặc một nhánh — nếu không đạt → ẩn.
  * 3) hideNewsfeed toàn feed, rồi sponsored / suggested / … theo pipeline hiện tại.
  */
 function parseAllowByUrlList(rawValue) {
@@ -1945,17 +2369,46 @@ function buildRegexEngine(keywordArray) {
     cachedKeywordRegex = new RegExp(patternString, 'iu');
 }
 
+/**
+ * Haystack bộ lọc văn bản: visible + toàn story + OCR (cùng lớp getFbpStoryBodyTextForTextFilter như sponsored),
+ * cộng caption / header / action — chữ thường để so khớp regex `iu`.
+ */
+function buildTextFilterHaystack(article) {
+    if (!(article instanceof Element)) {
+        return '';
+    }
+    const visible = extractVisibleText(article);
+    const body = getFbpStoryBodyTextForTextFilter(article);
+    const cap = getCaptionText(article);
+    const h = getHeaderText(article);
+    const ah = getActionHeaderText(article);
+    return [visible, body, cap, h, ah]
+        .filter(Boolean)
+        .join('\n')
+        .toLowerCase();
+}
+
 function applyUserTextFilter(article) {
     if (!fbBlockConfig.textFilterEnabled || !cachedKeywordRegex || !(article instanceof Element)) {
         return false;
     }
 
-    const postTextContent = extractVisibleText(article);
-    if (!postTextContent) {
-        return false;
+    const haystack = buildTextFilterHaystack(article);
+    cachedKeywordRegex.lastIndex = 0;
+    const matched = haystack.match(cachedKeywordRegex);
+
+    if (fbBlockConfig.textFilterKeepMatchingOnly) {
+        if (!haystack.trim()) {
+            markBlockedByDebug(article, 'text-filter:empty-haystack');
+            return true;
+        }
+        if (matched) {
+            return false;
+        }
+        markBlockedByDebug(article, 'text-filter:no-keyword-match');
+        return true;
     }
 
-    const matched = postTextContent.match(cachedKeywordRegex);
     if (!matched) {
         return false;
     }
@@ -1975,39 +2428,78 @@ function buildHashtagRegexCache(tags) {
             return;
         }
         const token = escapeRegex(tag);
-        const regex = new RegExp(`(^|[^\\p{L}\\p{N}_])#${token}(?=$|[^\\p{L}\\p{N}_])`, 'iu');
+        const regex = new RegExp(`(^|[^\\p{L}\\p{N}_-])#${token}(?=$|[^\\p{L}\\p{N}_-])`, 'iu');
         hashtagRegexCache.set(tag, regex);
     });
 }
 
+function resolveFacebookNavHrefForHashtagParse(rawHref) {
+    let h = String(rawHref || '').trim();
+    if (!h) {
+        return h;
+    }
+    try {
+        if (/l\.php|lm\.php/i.test(h)) {
+            const u = new URL(h, 'https://www.facebook.com');
+            const inner = u.searchParams.get('u');
+            if (inner) {
+                h = decodeURIComponent(inner);
+            }
+        }
+    } catch (_) {
+        /* ignore */
+    }
+    return h;
+}
+
 /**
- * Facebook hay gắn hashtag bằng link /hashtag/ten thay vì chữ # trong DOM.
+ * Facebook hay gắn hashtag bằng link /hashtag/ten hoặc redirect l.php; thêm path biến thể.
  */
 function collectHashtagHrefHaystack(article) {
     if (!(article instanceof Element)) {
         return '';
     }
     const parts = [];
+    const seen = new Set();
+    const pushTag = (token) => {
+        const t = String(token || '').trim().toLowerCase();
+        if (!t || seen.has(t)) {
+            return;
+        }
+        seen.add(t);
+        parts.push(`#${t}`);
+    };
+
     article.querySelectorAll('a[href]').forEach((a) => {
         const raw = a.getAttribute('href') || '';
-        if (!/\/hashtag\//i.test(raw) && !/[?&]hashtag=/i.test(raw)) {
+        const href = resolveFacebookNavHrefForHashtagParse(raw);
+        if (!href) {
+            return;
+        }
+        if (!/\/hashtag\//i.test(href) && !/[?&]hashtag=/i.test(href) && !/\/keywords\/hashtags\//i.test(href)) {
             return;
         }
         try {
-            const u = new URL(raw, 'https://www.facebook.com');
-            const pathMatch = u.pathname.match(/\/hashtag\/([^/?]+)/i);
+            const u = new URL(href, 'https://www.facebook.com');
+            const pathMatch = u.pathname.match(/\/hashtag\/([^/?]+)/i)
+                || u.pathname.match(/\/keywords\/hashtags\/([^/?]+)/i);
             if (pathMatch) {
                 const dec = decodeURIComponent(pathMatch[1]).replace(/\+/g, ' ').trim().toLowerCase();
                 if (dec) {
-                    parts.push(`#${dec}`);
+                    pushTag(dec);
                 }
                 return;
             }
-            const q = u.searchParams.get('hashtag') || u.searchParams.get('q');
-            if (q && /^#/i.test(q)) {
+            const hv = u.searchParams.get('hashtag');
+            if (hv) {
+                pushTag(normalizeHashtagLine(hv.startsWith('#') ? hv : `#${hv}`));
+                return;
+            }
+            const q = u.searchParams.get('q');
+            if (q && /^#/i.test(q.trim())) {
                 const inner = normalizeHashtagLine(q);
                 if (inner) {
-                    parts.push(`#${inner}`);
+                    pushTag(inner);
                 }
             }
         } catch (_) {
@@ -2017,9 +2509,15 @@ function collectHashtagHrefHaystack(article) {
     return parts.join(' ');
 }
 
+/**
+ * Haystack hashtag: lớp story.textContent + OCR (cùng sponsored textfilter), cộng caption/visible/header,
+ * và hashtag từ href (sau khi giải l.php).
+ */
 function buildHashtagSearchHaystack(article, captionText, visibleText, headerText, actionHeaderText) {
-    const fromLinks = collectHashtagHrefHaystack(article);
+    const storyBody = getFbpStoryBodyTextForTextFilter(article);
+    const fromLinks = article instanceof Element ? collectHashtagHrefHaystack(article) : '';
     const blob = [
+        storyBody,
         captionText || '',
         visibleText || '',
         headerText || '',
@@ -2041,9 +2539,9 @@ function plainHashtagTokenMatchesHaystack(haystack, tag) {
     if (!t || !haystack) {
         return false;
     }
-    if (/^[a-z0-9_]+$/i.test(t)) {
+    if (/^[\p{L}\p{N}_-]+$/u.test(t)) {
         try {
-            return new RegExp(`(?<![\\p{L}\\p{N}_])${escapeRegex(t)}(?![\\p{L}\\p{N}_])`, 'iu').test(haystack);
+            return new RegExp(`(?<![\\p{L}\\p{N}_-])${escapeRegex(t)}(?![\\p{L}\\p{N}_-])`, 'iu').test(haystack);
         } catch (_) {
             return haystack.includes(t);
         }
@@ -2084,6 +2582,8 @@ function getCaptionText(article) {
         'div[data-ad-preview="message"]',
         '[data-testid="post_message"]',
         '[role="article"] div[dir="auto"]',
+        'article div[dir="auto"]',
+        'div[aria-posinset] div[dir="auto"]',
     ];
 
     for (const selector of selectors) {
@@ -2149,6 +2649,17 @@ function getActionHeaderText(article) {
     }
 
     return chunks.join(' ');
+}
+
+/** Gom dòng tiêu đề + loại bài + đoạn caption đầu — Facebook hay tách chữ “chia sẻ ảnh” khỏi thẻ heading. */
+function getStoryTypeHaystack(article) {
+    if (!(article instanceof Element)) {
+        return '';
+    }
+    const h = getHeaderText(article);
+    const a = getActionHeaderText(article);
+    const cap = (getCaptionText(article) || '').slice(0, 320);
+    return `${h} ${a} ${cap}`.trim();
 }
 
 function hasOutboundLinkCard(article) {
@@ -2290,6 +2801,10 @@ function hasPhotoMediaSignals(article) {
     if (!(article instanceof Element)) {
         return false;
     }
+    /* Bài video/reel dùng poster ảnh lớn — không coi là “bài ảnh” thuần (tránh ẩn nhầm khi chỉ bật ẩn ảnh). */
+    if (hasVideoElement(article)) {
+        return false;
+    }
 
     const photoLinks = article.querySelectorAll(
         'a[href*="/photo"], a[href*="/photos/"], a[href*="/media/set/"], a[href*="fbid="]',
@@ -2340,20 +2855,6 @@ function isCommentedPhotoPost(headerText) {
     return matchesAnyPattern(headerText, COMMENTED_PHOTO_PATTERNS);
 }
 
-function disableVideoAutoplayInArticle(article) {
-    if (!(article instanceof Element) || !fbBlockConfig.disableVideoAutoplay) {
-        return;
-    }
-    const videos = article.querySelectorAll('video');
-    videos.forEach((video) => {
-        video.autoplay = false;
-        video.removeAttribute('autoplay');
-        if (!video.paused) {
-            video.pause();
-        }
-    });
-}
-
 function hideReelsTrayIfEnabled(scopeNode) {
     if (!isAdBlockEnabled || !fbBlockConfig.hideReelsTray) {
         return;
@@ -2365,7 +2866,7 @@ function hideReelsTrayIfEnabled(scopeNode) {
     const reelsContainers = scope.querySelectorAll(reelsSelectors);
     reelsContainers.forEach((container) => {
         const masterWrap = container.closest('[data-pagelet^="FeedUnit_"]')
-            || container.closest('[role="article"]')
+            || container.closest(FEED_POST_ROOT_SELECTOR)
             || container.parentElement?.parentElement
             || container.parentElement;
         if (masterWrap instanceof HTMLElement) {
@@ -2382,16 +2883,17 @@ function hasVideoElement(article) {
         return true;
     }
     return article.querySelector(
-        'a[href*="/watch/"], a[href*="/watch?v="], a[href*="/videos/"], a[href*="/reel/"], a[href*="fb.watch"]',
+        'a[href*="/watch/"], a[href*="/watch?v="], a[href*="/videos/"], a[href*="/reel/"], a[href*="/reels/"], a[href*="fb.watch"], a[href*="facebook.com/watch"]',
     ) !== null;
 }
 
-function isLiveVideoPost(text, headerText, actionHeaderText) {
-    const blob = `${headerText || ''} ${actionHeaderText || ''} ${(text || '').slice(0, 500)}`;
+function isLiveVideoPost(article, text) {
+    const storyHaystack = getStoryTypeHaystack(article);
+    const blob = `${storyHaystack} ${(text || '').slice(0, 500)}`;
     return matchesAnyPattern(blob, LIVE_VIDEO_PATTERNS);
 }
 
-function isSingleReelPost(article, text, headerText, actionHeaderText) {
+function isSingleReelPost(article, text) {
     if (!(article instanceof Element)) {
         return false;
     }
@@ -2401,12 +2903,13 @@ function isSingleReelPost(article, text, headerText, actionHeaderText) {
     if (article.querySelector('a[href*="fb.watch/"], a[href*="facebook.com/watch"]')) {
         return true;
     }
-    const signalText = `${headerText} ${actionHeaderText} ${(text || '').slice(0, 280)}`;
+    const signalText = `${getStoryTypeHaystack(article)} ${(text || '').slice(0, 280)}`;
     return /\breel(s)?\b/i.test(signalText) || /\bvideo ngắn\b/i.test(signalText) || /\bshort video\b/i.test(signalText);
 }
 
-function shouldHideVideoFeedStoryInteractions(actionHeaderText, text) {
-    const blob = `${actionHeaderText || ''} ${(text || '').slice(0, 500)}`;
+function shouldHideVideoFeedStoryInteractions(article, text) {
+    const storyHaystack = getStoryTypeHaystack(article);
+    const blob = `${storyHaystack} ${(text || '').slice(0, 500)}`;
     if (fbBlockConfig.hideVideoInteractionsLegacy) {
         if (VIDEO_INTERACTION_LEGACY_PATTERNS.some((p) => p.test(blob))) {
             return true;
@@ -2483,17 +2986,30 @@ function shouldHideArticle(article) {
     const headerText = getHeaderText(article);
     const actionHeaderText = getActionHeaderText(article);
 
-    /* Gate Allow: URL trước, từ khóa sau (AND nếu cả hai bật). Xem spec trên parseAllowByUrlList. */
-    if (!isArticleAllowedByUrl(article)) {
-        debugAllowByUrlLog('run1', 'H3', 'undistracted-facebook.js:shouldHideArticle', 'blocked by allow-by-url gate', {
-            pageHref: window.location.href,
-        });
-        markBlockedByDebug(article, 'allow-by-url:not-allowed');
-        return true;
-    }
-
-    if (!isArticleAllowedByPostKeywords(article)) {
-        markBlockedByDebug(article, 'allow-keywords:not-allowed');
+    /* Gate Allow: một chế độ → chỉ kiểm tra chế đó; cả hai bật và có dữ liệu → OR. Xem spec trên parseAllowByUrlList. */
+    const urlGateActive = Boolean(fbBlockConfig.allowByUrlOnly) && allowUrlSet.size > 0;
+    const kwGateActive = Boolean(fbBlockConfig.allowPostKeywordsOnly) && allowPostKeywordPhrases.length > 0;
+    const urlOk = isArticleAllowedByUrl(article);
+    const kwOk = isArticleAllowedByPostKeywords(article);
+    const allowPass = urlGateActive && kwGateActive
+        ? (urlOk || kwOk)
+        : (urlOk && kwOk);
+    if (!allowPass) {
+        if (urlGateActive && kwGateActive) {
+            debugAllowByUrlLog('run1', 'H3', 'undistracted-facebook.js:shouldHideArticle', 'blocked by allow gate (neither url nor keywords)', {
+                pageHref: window.location.href,
+                urlOk,
+                kwOk,
+            });
+            markBlockedByDebug(article, 'allow-combined:not-allowed');
+        } else if (urlGateActive && !urlOk) {
+            debugAllowByUrlLog('run1', 'H3', 'undistracted-facebook.js:shouldHideArticle', 'blocked by allow-by-url gate', {
+                pageHref: window.location.href,
+            });
+            markBlockedByDebug(article, 'allow-by-url:not-allowed');
+        } else if (kwGateActive && !kwOk) {
+            markBlockedByDebug(article, 'allow-keywords:not-allowed');
+        }
         return true;
     }
 
@@ -2503,7 +3019,15 @@ function shouldHideArticle(article) {
 
     // Keep sponsored check first for early-return performance.
     if (fbBlockConfig.hideSponsoredPosts) {
-        if (checkSponsoredPost(article, text)) {
+        if (checkSponsoredPost(article, text, headerText, actionHeaderText)) {
+            return true;
+        }
+    }
+
+    if (fbBlockConfig.hideHashtagPosts) {
+        const hashtagHaystack = buildHashtagSearchHaystack(article, captionText, text, headerText, actionHeaderText);
+        if (hasBlockedHashtagInHaystack(hashtagHaystack)) {
+            markBlockedByDebug(article, 'hashtag:blocked');
             return true;
         }
     }
@@ -2540,27 +3064,29 @@ function shouldHideArticle(article) {
         return true;
     }
 
-    if (fbBlockConfig.hideUpdatedProfilePictures && isUpdatedProfilePhotoPost(actionHeaderText)) {
+    const photoStoryHaystack = getStoryTypeHaystack(article);
+
+    if (fbBlockConfig.hideUpdatedProfilePictures && isUpdatedProfilePhotoPost(photoStoryHaystack)) {
         return true;
     }
 
-    if (fbBlockConfig.hideSharedPhotoAlbums && isSharedPhotoOrAlbumPost(actionHeaderText)) {
+    if (fbBlockConfig.hideSharedPhotoAlbums && isSharedPhotoOrAlbumPost(photoStoryHaystack)) {
         return true;
     }
 
-    if (fbBlockConfig.hideUploadedPhotos && isUploadedPhotoPost(actionHeaderText)) {
+    if (fbBlockConfig.hideUploadedPhotos && isUploadedPhotoPost(photoStoryHaystack)) {
         return true;
     }
 
-    if (fbBlockConfig.hide3DPhotos && is3DPhotoPost(actionHeaderText, text)) {
+    if (fbBlockConfig.hide3DPhotos && is3DPhotoPost(photoStoryHaystack, text)) {
         return true;
     }
 
-    if (fbBlockConfig.hideLikedPhotos && isLikedPhotoPost(actionHeaderText)) {
+    if (fbBlockConfig.hideLikedPhotos && isLikedPhotoPost(photoStoryHaystack)) {
         return true;
     }
 
-    if (fbBlockConfig.hideCommentedPhotos && isCommentedPhotoPost(actionHeaderText)) {
+    if (fbBlockConfig.hideCommentedPhotos && isCommentedPhotoPost(photoStoryHaystack)) {
         return true;
     }
 
@@ -2568,31 +3094,21 @@ function shouldHideArticle(article) {
         return true;
     }
 
-    if (shouldHideVideoFeedStoryInteractions(actionHeaderText, text)) {
+    if (shouldHideVideoFeedStoryInteractions(article, text)) {
         return true;
     }
 
-    if (fbBlockConfig.hideSingleReelPosts && isSingleReelPost(article, text, headerText, actionHeaderText)) {
+    if (fbBlockConfig.hideSingleReelPosts && isSingleReelPost(article, text)) {
         return true;
     }
 
-    if (fbBlockConfig.hideLiveVideos && isLiveVideoPost(text, headerText, actionHeaderText)) {
+    if (fbBlockConfig.hideLiveVideos && isLiveVideoPost(article, text)) {
         return true;
     }
 
     if (fbBlockConfig.hideAllVideos && hasVideoElement(article)) {
         return true;
     }
-
-    if (fbBlockConfig.hideHashtagPosts) {
-        const hashtagHaystack = buildHashtagSearchHaystack(article, captionText, text, headerText, actionHeaderText);
-        if (hasBlockedHashtagInHaystack(hashtagHaystack)) {
-            markBlockedByDebug(article, 'hashtag:blocked');
-            return true;
-        }
-    }
-
-    disableVideoAutoplayInArticle(article);
 
     return false;
 }
@@ -2669,7 +3185,9 @@ function hideNewsfeedIfEnabled() {
 }
 
 function hideArticle(article) {
-    const wrapper = article.closest('[role="article"]') || article;
+    const wrapper = (article instanceof Element && article.matches(FEED_POST_ROOT_SELECTOR))
+        ? article
+        : (article instanceof Element ? article.closest(FEED_POST_ROOT_SELECTOR) : null) || article;
     if (!(wrapper instanceof HTMLElement)) {
         return;
     }
@@ -2774,7 +3292,7 @@ function rescanMainArticlesForHideNewsfeed() {
     if (!isAdBlockEnabled || !fbBlockConfig.hideNewsfeed) {
         return;
     }
-    document.querySelectorAll('[role="main"] [role="article"]').forEach((el) => {
+    document.querySelectorAll(MAIN_COLUMN_POST_SELECTOR).forEach((el) => {
         if (!(el instanceof Element)) {
             return;
         }
@@ -2804,7 +3322,9 @@ function startObserver() {
             if (mutation.type !== 'childList' || mutation.addedNodes.length === 0) {
                 return;
             }
-            mutation.addedNodes.forEach(queueFromNode);
+            mutation.addedNodes.forEach((node) => {
+                queueFromNode(node);
+            });
         });
     });
     observer.observe(document.body || document.documentElement, { childList: true, subtree: true });
@@ -2873,12 +3393,9 @@ function loadFacebookSettings() {
                 && (facebookSettings?.hideReelsShortVideo || facebookSettings?.hideReelsTray);
             const isSingleReelPostBlockingEnabled = feedSectionOn
                 && (facebookSettings?.hideSingleReelPosts || facebookSettings?.hideReelsShortVideo);
-            const isDisableVideoAutoplayEnabled = feedSectionOn
-                && (facebookSettings?.disableVideoAutoplayFacebook || facebookSettings?.disableVideoAutoplay);
-            const isTextFilterSectionEnabled = facebookSettings.masterSectionIII !== false;
-            const userTextKeywords = parseUserTextKeywords(facebookSettings?.textFilterKeywords || '');
-            buildRegexEngine(userTextKeywords);
-            const isTextFilterEnabled = isTextFilterSectionEnabled && userTextKeywords.length > 0;
+            /* Bộ lọc văn bản (dashboard mục III) đã bỏ; không áp dụng textFilterKeywords / masterSectionIII. */
+            buildRegexEngine([]);
+            const isTextFilterEnabled = false;
             const allowByUrlSectionOn = facebookSettings.masterSectionIV !== false;
             allowUrlSet = parseAllowByUrlList(facebookSettings?.allowByUrlList || '');
             const isAllowByUrlEnabled = allowByUrlSectionOn
@@ -2904,49 +3421,49 @@ function loadFacebookSettings() {
             const isHideRightColumnAllEnabled = rightSectionOn && Boolean(facebookSettings?.hideRightColumnAll);
             const isHideRightBirthdaysEnabled = rightSectionOn && Boolean(facebookSettings?.hideRightBirthdays);
             const isHideRightFriendRequestsEnabled = rightSectionOn && Boolean(facebookSettings?.hideRightFriendRequests);
-            const isHideRightYourPagesEnabled = rightSectionOn && Boolean(facebookSettings?.hideRightYourPages);
-            const isHideRightRecommendedPagesEnabled = rightSectionOn && Boolean(facebookSettings?.hideRightRecommendedPages);
-            const isHideRightSuggestedGroupsEnabled = rightSectionOn && Boolean(facebookSettings?.hideRightSuggestedGroups);
             const isHideRightEventsEnabled = rightSectionOn
                 && Boolean(facebookSettings?.hideRightEvents || facebookSettings?.hideRightHappeningLive);
-            const isHideRightGameAppRequestsEnabled = rightSectionOn && Boolean(facebookSettings?.hideRightGameAppRequests);
-            const isHideRightMarketplacePanelEnabled = rightSectionOn && Boolean(facebookSettings?.hideRightMarketplacePanel);
-            const isHideRightPokesEnabled = rightSectionOn && Boolean(facebookSettings?.hideRightPokes);
-            const isHideRightWatchEnabled = rightSectionOn && Boolean(facebookSettings?.hideRightWatch);
             const isHideRightSponsoredAdsEnabled = rightSectionOn && Boolean(facebookSettings?.hideSponsoredPosts);
             const leftSectionOn = facebookSettings.masterSectionVII !== false;
             const isHideLeftColumnAllEnabled = leftSectionOn && Boolean(facebookSettings?.hideLeftColumnAll);
             const isHideLeftPagesEnabled = leftSectionOn && Boolean(facebookSettings?.hideLeftPages);
             const isHideLeftGroupsEnabled = leftSectionOn && Boolean(facebookSettings?.hideLeftGroups);
+            const isHideLeftFriendsEnabled = leftSectionOn && Boolean(facebookSettings?.hideLeftFriends);
             const isHideLeftWatchEnabled = leftSectionOn && Boolean(facebookSettings?.hideLeftWatch);
             const isHideLeftMarketplaceEnabled = leftSectionOn && Boolean(facebookSettings?.hideLeftMarketplace);
             const isHideLeftMemoriesEnabled = leftSectionOn && Boolean(facebookSettings?.hideLeftMemories);
             const isHideLeftSavedEnabled = leftSectionOn && Boolean(facebookSettings?.hideLeftSaved);
             const isHideLeftEventsEnabled = leftSectionOn && Boolean(facebookSettings?.hideLeftEvents);
-            const isHideLeftGamingEnabled = leftSectionOn && Boolean(
-                facebookSettings?.hideLeftGaming || facebookSettings?.hideLeftGameStreaming,
-            );
-            const isHideLeftAdsManagerEnabled = leftSectionOn && Boolean(
-                facebookSettings?.hideLeftAdsManager || facebookSettings?.hideLeftRecentAdActivity,
-            );
+            const isHideLeftCreateEnabled = leftSectionOn && Boolean(facebookSettings?.hideLeftCreate);
+            const isHideLeftGamingEnabled = leftSectionOn && Boolean(facebookSettings?.hideLeftGaming);
+            const isHideLeftGameStreamingEnabled = leftSectionOn && Boolean(facebookSettings?.hideLeftGameStreaming);
+            const isHideLeftAdsManagerEnabled = leftSectionOn && Boolean(facebookSettings?.hideLeftRecentAdActivity);
             const isHideLeftFundraisersEnabled = leftSectionOn && Boolean(facebookSettings?.hideLeftFundraisers);
             const isHideLeftBloodDonationsEnabled = leftSectionOn && Boolean(facebookSettings?.hideLeftBloodDonations);
             const isHideLeftClimateScienceEnabled = leftSectionOn && Boolean(facebookSettings?.hideLeftClimateScience);
-            const isHideLeftProfessionalEnabled = leftSectionOn && Boolean(
-                facebookSettings?.hideLeftProfessional || facebookSettings?.hideLeftCreatorStudio,
-            );
+            const isHideLeftProfessionalEnabled = leftSectionOn && Boolean(facebookSettings?.hideLeftProfessional);
             const isHideLeftFeedsMenuEnabled = leftSectionOn && Boolean(
                 facebookSettings?.hideLeftFeedsMenu || facebookSettings?.hideLeftMostRecent,
             );
-            const isHideLeftPayAndOrdersEnabled = leftSectionOn && Boolean(
-                facebookSettings?.hideLeftPayAndOrders || facebookSettings?.hideLeftOrderFood || facebookSettings?.hideLeftOffers,
-            );
+            const isHideLeftPayAndOrdersEnabled = leftSectionOn && Boolean(facebookSettings?.hideLeftPayAndOrders);
+            const isHideLeftOrderFoodEnabled = leftSectionOn && Boolean(facebookSettings?.hideLeftOrderFood);
+            const isHideLeftOffersEnabled = leftSectionOn && Boolean(facebookSettings?.hideLeftOffers);
+            const isHideLeftWeatherEnabled = leftSectionOn && Boolean(facebookSettings?.hideLeftWeather);
+            const isHideLeftShopsEnabled = leftSectionOn && Boolean(facebookSettings?.hideLeftShops);
+            const isHideLeftLiveVideosEnabled = leftSectionOn && Boolean(facebookSettings?.hideLeftLiveVideos);
+            const isHideLeftReelsEnabled = leftSectionOn && Boolean(facebookSettings?.hideLeftReels);
+            const isHideLeftMoviesEnabled = leftSectionOn && Boolean(facebookSettings?.hideLeftMovies);
+            const isHideLeftMessengerEnabled = leftSectionOn && Boolean(facebookSettings?.hideLeftMessenger);
+            const isHideLeftJobsEnabled = leftSectionOn && Boolean(facebookSettings?.hideLeftJobs);
+            const isHideLeftVotingInformationEnabled = leftSectionOn && Boolean(facebookSettings?.hideLeftVotingInformation);
+            const isHideLeftCrisisResponseEnabled = leftSectionOn && Boolean(facebookSettings?.hideLeftCrisisResponse);
+            const isHideLeftNewsEnabled = leftSectionOn && Boolean(facebookSettings?.hideLeftNews);
+            const isHideLeftMetaAIEnabled = leftSectionOn && Boolean(facebookSettings?.hideLeftMetaAI);
+            const isHideLeftMusicEnabled = leftSectionOn && Boolean(facebookSettings?.hideLeftMusic);
             const isHideLeftShortcutsEnabled = leftSectionOn && Boolean(
                 facebookSettings?.hideLeftShortcuts || facebookSettings?.hideLeftFavorites,
             );
             const topNavSectionOn = facebookSettings.masterSectionIX !== false;
-            const isFreezeTopNavBarEnabled = topNavSectionOn && Boolean(facebookSettings?.freezeTopNavBar);
-            const isShowLogoutButtonEnabled = topNavSectionOn && Boolean(facebookSettings?.showLogoutButton);
             const isHideSearchBoxAndPopupEnabled = topNavSectionOn && Boolean(facebookSettings?.hideSearchBoxAndPopup);
             const isHideNavHomeEnabled = topNavSectionOn && Boolean(facebookSettings?.hideNavHome);
             const isHideNavPagesEnabled = topNavSectionOn && Boolean(facebookSettings?.hideNavPages);
@@ -2959,8 +3476,6 @@ function loadFacebookSettings() {
             const isHideNavNotificationsEnabled = topNavSectionOn && Boolean(facebookSettings?.hideNavNotifications);
             const isHideNavNewsEnabled = topNavSectionOn && Boolean(facebookSettings?.hideNavNews);
             const isHideNavEventsEnabled = topNavSectionOn && Boolean(facebookSettings?.hideNavEvents);
-            const isHideNavFriendRequestsEnabled = topNavSectionOn && Boolean(facebookSettings?.hideNavFriendRequests);
-            const isHideNavAccountSwitcherEnabled = topNavSectionOn && Boolean(facebookSettings?.hideNavAccountSwitcher);
 
             clearFacebookRuntime();
 
@@ -2985,9 +3500,7 @@ function loadFacebookSettings() {
                 || isVideoInteractionsBlockingEnabled
                 || isReelsTrayBlockingEnabled
                 || isSingleReelPostBlockingEnabled
-                || isDisableVideoAutoplayEnabled
                 || isHashtagBlockingEnabled
-                || isTextFilterEnabled
                 || isAllowByUrlEnabled
                 || isAllowPostKeywordsEnabled
                 || isSuggestedBlockingEnabled
@@ -2995,24 +3508,20 @@ function loadFacebookSettings() {
                 || isHideRightColumnAllEnabled
                 || isHideRightBirthdaysEnabled
                 || isHideRightFriendRequestsEnabled
-                || isHideRightYourPagesEnabled
-                || isHideRightRecommendedPagesEnabled
-                || isHideRightSuggestedGroupsEnabled
                 || isHideRightEventsEnabled
-                || isHideRightGameAppRequestsEnabled
-                || isHideRightMarketplacePanelEnabled
-                || isHideRightPokesEnabled
-                || isHideRightWatchEnabled
                 || isHideRightSponsoredAdsEnabled
                 || isHideLeftColumnAllEnabled
                 || isHideLeftPagesEnabled
                 || isHideLeftGroupsEnabled
+                || isHideLeftFriendsEnabled
                 || isHideLeftWatchEnabled
                 || isHideLeftMarketplaceEnabled
                 || isHideLeftMemoriesEnabled
                 || isHideLeftSavedEnabled
                 || isHideLeftEventsEnabled
+                || isHideLeftCreateEnabled
                 || isHideLeftGamingEnabled
+                || isHideLeftGameStreamingEnabled
                 || isHideLeftAdsManagerEnabled
                 || isHideLeftFundraisersEnabled
                 || isHideLeftBloodDonationsEnabled
@@ -3020,9 +3529,21 @@ function loadFacebookSettings() {
                 || isHideLeftProfessionalEnabled
                 || isHideLeftFeedsMenuEnabled
                 || isHideLeftPayAndOrdersEnabled
+                || isHideLeftOrderFoodEnabled
+                || isHideLeftOffersEnabled
+                || isHideLeftWeatherEnabled
+                || isHideLeftShopsEnabled
+                || isHideLeftLiveVideosEnabled
+                || isHideLeftReelsEnabled
+                || isHideLeftMoviesEnabled
+                || isHideLeftMessengerEnabled
+                || isHideLeftJobsEnabled
+                || isHideLeftVotingInformationEnabled
+                || isHideLeftCrisisResponseEnabled
+                || isHideLeftNewsEnabled
+                || isHideLeftMetaAIEnabled
+                || isHideLeftMusicEnabled
                 || isHideLeftShortcutsEnabled
-                || isFreezeTopNavBarEnabled
-                || isShowLogoutButtonEnabled
                 || isHideSearchBoxAndPopupEnabled
                 || isHideNavHomeEnabled
                 || isHideNavPagesEnabled
@@ -3035,8 +3556,6 @@ function loadFacebookSettings() {
                 || isHideNavNotificationsEnabled
                 || isHideNavNewsEnabled
                 || isHideNavEventsEnabled
-                || isHideNavFriendRequestsEnabled
-                || isHideNavAccountSwitcherEnabled
             );
 
             isAdBlockEnabled = shouldEnableFacebookFiltering;
@@ -3074,32 +3593,29 @@ function loadFacebookSettings() {
                     && !hideVideoFeedLegacy && Boolean(facebookSettings?.hideCommentedOnVideo),
                 hideReelsTray: isExtensionActive && isReelsTrayBlockingEnabled,
                 hideSingleReelPosts: isExtensionActive && isSingleReelPostBlockingEnabled,
-                disableVideoAutoplay: isExtensionActive && isDisableVideoAutoplayEnabled,
                 allowByUrlOnly: isExtensionActive && isAllowByUrlEnabled,
                 allowPostKeywordsOnly: isExtensionActive && isAllowPostKeywordsEnabled,
                 hideHashtagPosts: isExtensionActive && isHashtagBlockingEnabled,
                 textFilterEnabled: isExtensionActive && isTextFilterEnabled,
+                textFilterKeepMatchingOnly: isExtensionActive && isTextFilterEnabled
+                    && Boolean(facebookSettings?.textFilterKeepMatchingOnly),
                 hideRightColumnAll: isExtensionActive && isHideRightColumnAllEnabled,
                 hideRightBirthdays: isExtensionActive && isHideRightBirthdaysEnabled,
                 hideRightFriendRequests: isExtensionActive && isHideRightFriendRequestsEnabled,
-                hideRightYourPages: isExtensionActive && isHideRightYourPagesEnabled,
-                hideRightRecommendedPages: isExtensionActive && isHideRightRecommendedPagesEnabled,
-                hideRightSuggestedGroups: isExtensionActive && isHideRightSuggestedGroupsEnabled,
                 hideRightEvents: isExtensionActive && isHideRightEventsEnabled,
-                hideRightGameAppRequests: isExtensionActive && isHideRightGameAppRequestsEnabled,
-                hideRightMarketplacePanel: isExtensionActive && isHideRightMarketplacePanelEnabled,
-                hideRightPokes: isExtensionActive && isHideRightPokesEnabled,
-                hideRightWatch: isExtensionActive && isHideRightWatchEnabled,
                 hideRightSponsoredAds: isExtensionActive && isHideRightSponsoredAdsEnabled,
                 hideLeftColumnAll: isExtensionActive && isHideLeftColumnAllEnabled,
                 hideLeftPages: isExtensionActive && isHideLeftPagesEnabled,
                 hideLeftGroups: isExtensionActive && isHideLeftGroupsEnabled,
+                hideLeftFriends: isExtensionActive && isHideLeftFriendsEnabled,
                 hideLeftWatch: isExtensionActive && isHideLeftWatchEnabled,
                 hideLeftMarketplace: isExtensionActive && isHideLeftMarketplaceEnabled,
                 hideLeftMemories: isExtensionActive && isHideLeftMemoriesEnabled,
                 hideLeftSaved: isExtensionActive && isHideLeftSavedEnabled,
                 hideLeftEvents: isExtensionActive && isHideLeftEventsEnabled,
+                hideLeftCreate: isExtensionActive && isHideLeftCreateEnabled,
                 hideLeftGaming: isExtensionActive && isHideLeftGamingEnabled,
+                hideLeftGameStreaming: isExtensionActive && isHideLeftGameStreamingEnabled,
                 hideLeftAdsManager: isExtensionActive && isHideLeftAdsManagerEnabled,
                 hideLeftFundraisers: isExtensionActive && isHideLeftFundraisersEnabled,
                 hideLeftBloodDonations: isExtensionActive && isHideLeftBloodDonationsEnabled,
@@ -3107,9 +3623,21 @@ function loadFacebookSettings() {
                 hideLeftProfessional: isExtensionActive && isHideLeftProfessionalEnabled,
                 hideLeftFeedsMenu: isExtensionActive && isHideLeftFeedsMenuEnabled,
                 hideLeftPayAndOrders: isExtensionActive && isHideLeftPayAndOrdersEnabled,
+                hideLeftOrderFood: isExtensionActive && isHideLeftOrderFoodEnabled,
+                hideLeftOffers: isExtensionActive && isHideLeftOffersEnabled,
+                hideLeftWeather: isExtensionActive && isHideLeftWeatherEnabled,
+                hideLeftShops: isExtensionActive && isHideLeftShopsEnabled,
+                hideLeftLiveVideos: isExtensionActive && isHideLeftLiveVideosEnabled,
+                hideLeftReels: isExtensionActive && isHideLeftReelsEnabled,
+                hideLeftMovies: isExtensionActive && isHideLeftMoviesEnabled,
+                hideLeftMessenger: isExtensionActive && isHideLeftMessengerEnabled,
+                hideLeftJobs: isExtensionActive && isHideLeftJobsEnabled,
+                hideLeftVotingInformation: isExtensionActive && isHideLeftVotingInformationEnabled,
+                hideLeftCrisisResponse: isExtensionActive && isHideLeftCrisisResponseEnabled,
+                hideLeftNews: isExtensionActive && isHideLeftNewsEnabled,
+                hideLeftMetaAI: isExtensionActive && isHideLeftMetaAIEnabled,
+                hideLeftMusic: isExtensionActive && isHideLeftMusicEnabled,
                 hideLeftShortcuts: isExtensionActive && isHideLeftShortcutsEnabled,
-                freezeTopNavBar: isExtensionActive && isFreezeTopNavBarEnabled,
-                showLogoutButton: isExtensionActive && isShowLogoutButtonEnabled,
                 hideSearchBoxAndPopup: isExtensionActive && isHideSearchBoxAndPopupEnabled,
                 hideNavHome: isExtensionActive && isHideNavHomeEnabled,
                 hideNavPages: isExtensionActive && isHideNavPagesEnabled,
@@ -3122,8 +3650,6 @@ function loadFacebookSettings() {
                 hideNavNotifications: isExtensionActive && isHideNavNotificationsEnabled,
                 hideNavNews: isExtensionActive && isHideNavNewsEnabled,
                 hideNavEvents: isExtensionActive && isHideNavEventsEnabled,
-                hideNavFriendRequests: isExtensionActive && isHideNavFriendRequestsEnabled,
-                hideNavAccountSwitcher: isExtensionActive && isHideNavAccountSwitcherEnabled,
                 hideSuggestedPosts: isExtensionActive && isSuggestedBlockingEnabled,
                 hideMarketplaceAds: isExtensionActive && isMarketplaceBlockingEnabled,
                 hideSponsoredPosts: isExtensionActive && isSponsoredBlockingEnabled,

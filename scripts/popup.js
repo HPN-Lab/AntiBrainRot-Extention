@@ -3,8 +3,35 @@
 const STORAGE_KEY = 'inAppBlockingSettings';
 const OPENING_TIMER_STATE_KEY = 'openingTimerState';
 const SETTINGS_STORAGE_KEY = 'dashboardSettings';
-const DEFAULT_OPENING_TIMER_MESSAGE = 'Chậm lại một chút trước khi mở nội dung gây xao nhãng.';
-const DEFAULT_TIME_REMAINING_SECONDS = 25 * 60;
+
+function i18nMsg(key, fallback) {
+    if (typeof globalThis.ExtensionI18n?.getMessage === 'function') {
+        const s = globalThis.ExtensionI18n.getMessage(key);
+        if (s) {
+            return s;
+        }
+    }
+
+    if (typeof chrome !== 'undefined' && chrome.i18n && typeof chrome.i18n.getMessage === 'function') {
+        try {
+            const s = chrome.i18n.getMessage(key);
+            if (s) {
+                return s;
+            }
+        } catch {
+            /* ignore */
+        }
+    }
+
+    return fallback;
+}
+
+function getDefaultOpeningTimerMessage() {
+    return i18nMsg(
+        'opening_timer_message_default',
+        'Take a short pause before opening distracting content.',
+    );
+}
 
 const mainScreen = document.getElementById('main-screen');
 const openingTimerWaitScreen = document.getElementById('opening-timer-wait-screen');
@@ -26,6 +53,14 @@ let globalActiveToggleShell = document.getElementById('popup-active-toggle-shell
 let globalActiveToggle = document.getElementById('global-active-toggle');
 let globalActiveToggleLabel = document.getElementById('global-active-toggle-label');
 const expandBtn = document.getElementById('expand-btn');
+const popupSettingsScreen = document.getElementById('popup-settings-screen');
+const popupSettingsBtn = document.getElementById('popup-settings-btn');
+const popupSettingsBack = document.getElementById('popup-settings-back');
+const popupSettingsTheme = document.getElementById('popup-settings-theme');
+const popupSettingsShowToggle = document.getElementById('popup-settings-show-toggle');
+const popupSettingsFloatingTimer = document.getElementById('popup-settings-floating-timer');
+const popupSettingsDisableSync = document.getElementById('popup-settings-disable-sync');
+const popupOpenFullSettings = document.getElementById('popup-open-full-settings');
 const popupActiveToggleHost = globalActiveToggleShell?.parentElement || null;
 const popupActiveToggleMarkup = globalActiveToggleShell?.outerHTML || '';
 let popupActiveTogglePlaceholder = document.createComment('popup-active-toggle-shell');
@@ -34,6 +69,34 @@ let popupTimerInterval = null;
 let uiCountdownInterval = null;
 let lastRenderedHost = '';
 let latestPopupState = null;
+let popupUiMode = 'main';
+
+const DEFAULT_DASHBOARD_SETTINGS_POPUP = {
+    hideSwitch: false,
+    theme: 'auto',
+    language: 'en-US',
+    floatingTimerEnable: false,
+    disableSync: false,
+    trackTabsPlayingAudio: false,
+    neverShowUpdateNotices: false,
+    hideAllowLinks: false,
+    redirectMessage: '',
+    notifications: [],
+    optOutDataCollection: false,
+    isChallengeActive: false,
+};
+
+function mergeDashboardSettingsPopup(storedSettings = {}) {
+    return {
+        ...DEFAULT_DASHBOARD_SETTINGS_POPUP,
+        ...(storedSettings || {}),
+        notifications: Array.isArray(storedSettings?.notifications)
+            ? storedSettings.notifications
+                .map((value) => Math.max(0, Number(value) || 0))
+                .filter((value) => value > 0)
+            : [...DEFAULT_DASHBOARD_SETTINGS_POPUP.notifications],
+    };
+}
 
 function hydratePopupToggleRefs() {
     globalActiveToggleShell = document.getElementById('popup-active-toggle-shell');
@@ -176,6 +239,92 @@ function removeLocalStorage(keys) {
     });
 }
 
+function removeSyncStorage(keys) {
+    return new Promise((resolve, reject) => {
+        try {
+            chrome.storage.sync.remove(keys, () => {
+                if (chrome.runtime.lastError) {
+                    reject(chrome.runtime.lastError);
+                    return;
+                }
+
+                resolve();
+            });
+        } catch (error) {
+            reject(error);
+        }
+    });
+}
+
+async function loadMergedDashboardSettingsPopup() {
+    const [localData, syncData] = await Promise.all([
+        getLocalStorage([SETTINGS_STORAGE_KEY]),
+        getSyncStorage([SETTINGS_STORAGE_KEY]),
+    ]);
+    const localSettings = localData?.[SETTINGS_STORAGE_KEY];
+    const syncSettings = syncData?.[SETTINGS_STORAGE_KEY];
+    const raw = localSettings?.disableSync ? localSettings : (syncSettings || localSettings || {});
+    return mergeDashboardSettingsPopup(raw);
+}
+
+async function saveDashboardSettingsPopup(settings) {
+    const merged = mergeDashboardSettingsPopup(settings);
+    const payload = { [SETTINGS_STORAGE_KEY]: merged };
+
+    if (merged.disableSync) {
+        await setLocalStorage(payload);
+        await removeSyncStorage([SETTINGS_STORAGE_KEY]);
+    } else {
+        await setSyncStorage(payload);
+        await removeLocalStorage([SETTINGS_STORAGE_KEY]);
+    }
+
+    return merged;
+}
+
+async function hydratePopupSettingsForm() {
+    if (!popupSettingsTheme) {
+        return;
+    }
+
+    try {
+        const s = await loadMergedDashboardSettingsPopup();
+        const th = s.theme;
+        popupSettingsTheme.value = th === 'light' || th === 'dark' || th === 'auto' ? th : 'auto';
+        if (popupSettingsShowToggle) {
+            popupSettingsShowToggle.checked = !s.hideSwitch;
+        }
+
+        if (popupSettingsFloatingTimer) {
+            popupSettingsFloatingTimer.checked = Boolean(s.floatingTimerEnable);
+        }
+
+        if (popupSettingsDisableSync) {
+            popupSettingsDisableSync.checked = Boolean(s.disableSync);
+        }
+    } catch (error) {
+        console.error('[POPUP:HYDRATE_SETTINGS]', error);
+    }
+}
+
+async function persistPopupDashboardPatch(patch) {
+    let previous;
+    try {
+        previous = await loadMergedDashboardSettingsPopup();
+        const next = mergeDashboardSettingsPopup({ ...previous, ...patch });
+        await saveDashboardSettingsPopup(next);
+        if (Object.prototype.hasOwnProperty.call(patch, 'hideSwitch')) {
+            renderPopupActiveToggleVisibility(Boolean(next.hideSwitch));
+        }
+    } catch (error) {
+        console.error('[POPUP:PERSIST_SETTINGS]', error);
+        await hydratePopupSettingsForm();
+        if (previous !== undefined && Object.prototype.hasOwnProperty.call(patch, 'hideSwitch')) {
+            renderPopupActiveToggleVisibility(Boolean(previous.hideSwitch));
+        }
+    }
+}
+
 function queryActiveTab() {
     return new Promise((resolve, reject) => {
         try {
@@ -213,13 +362,16 @@ function formatSeconds(totalSeconds) {
 }
 
 function showScreen(screenName) {
-    const showMain = screenName === 'mainScreen';
+    const showMain = screenName === 'main';
+    const showTimer = screenName === 'timer';
+    const showSettings = screenName === 'settings';
     mainScreen?.classList.toggle('hidden', !showMain);
-    openingTimerWaitScreen?.classList.toggle('hidden', showMain);
+    openingTimerWaitScreen?.classList.toggle('hidden', !showTimer);
+    popupSettingsScreen?.classList.toggle('hidden', !showSettings);
 }
 
 function normalizeHost(hostname = '') {
-    return hostname.replace(/^www\./i, '').toLowerCase();
+    return BlocklistPolicy.normalizeHost(hostname);
 }
 
 function getOpeningTimerDurationInSeconds(youtubeSettings) {
@@ -236,7 +388,9 @@ function updateToggleVisual(isActive) {
     globalActiveToggle.setAttribute('aria-pressed', String(isActive));
 
     if (globalActiveToggleLabel) {
-        globalActiveToggleLabel.textContent = isActive ? 'Active' : 'Off';
+        globalActiveToggleLabel.textContent = isActive
+            ? i18nMsg('popup_toggle_on', 'Active')
+            : i18nMsg('popup_toggle_off', 'Off');
     }
 }
 
@@ -269,7 +423,20 @@ function updateSiteFavicon(currentTabInfo) {
     siteFavicon.src = faviconUrl;
 }
 
-function startUiCountdown(secondsRemaining) {
+const POPUP_COUNTDOWN_SYNC_KEYS = [
+    STORAGE_KEY,
+    'isExtensionActive',
+    'blockedSites',
+    'blockedGroups',
+    'blockAllExceptAllowlist',
+    'whitelistedSites',
+    'siteTimers',
+];
+
+/**
+ * Đọc lại storage mỗi giây để khớp hạn nhóm (nhiều tab cùng nhóm cộng dồn) và siteTimers từ service worker.
+ */
+function startUiCountdown() {
     if (!timeRemainingValue) {
         return;
     }
@@ -279,11 +446,7 @@ function startUiCountdown(secondsRemaining) {
         uiCountdownInterval = null;
     }
 
-    const countdownState = {
-        secondsLeft: Math.max(0, secondsRemaining),
-    };
-
-    const updateCountdown = () => {
+    const tick = async () => {
         if (!latestPopupState || latestPopupState.status !== 'tracking') {
             if (uiCountdownInterval) {
                 clearInterval(uiCountdownInterval);
@@ -292,21 +455,51 @@ function startUiCountdown(secondsRemaining) {
             return;
         }
 
-        timeRemainingValue.textContent = formatSeconds(countdownState.secondsLeft);
-
-        if (countdownState.secondsLeft <= 0) {
-            latestPopupState.status = 'blocked';
-            latestPopupState.statusLabel = "Time's Up";
-            latestPopupState.note = 'Đã hết thời gian cho website này.';
-            updateUIState(latestPopupState, latestPopupState.currentTabInfo);
-            return;
+        try {
+            const currentTabInfo = await queryActiveTab();
+            const [storageData, groupUsageRaw] = await Promise.all([
+                getSyncStorage(POPUP_COUNTDOWN_SYNC_KEYS),
+                getLocalStorage(['vmuGroupUsageTs']),
+            ]);
+            const groupUsageMap =
+                groupUsageRaw && groupUsageRaw.vmuGroupUsageTs && typeof groupUsageRaw.vmuGroupUsageTs === 'object'
+                    ? groupUsageRaw.vmuGroupUsageTs
+                    : {};
+            const state = buildPopupState(storageData, currentTabInfo, groupUsageMap);
+            if (state.status !== 'tracking') {
+                if (uiCountdownInterval) {
+                    clearInterval(uiCountdownInterval);
+                    uiCountdownInterval = null;
+                }
+                updateUIState(state, currentTabInfo);
+                return;
+            }
+            const sec = Math.max(0, Number(state.remainingSeconds) || 0);
+            timeRemainingValue.textContent = formatSeconds(sec);
+            if (sec <= 0) {
+                if (uiCountdownInterval) {
+                    clearInterval(uiCountdownInterval);
+                    uiCountdownInterval = null;
+                }
+                const blockedState = {
+                    ...state,
+                    status: 'blocked',
+                    statusLabel: i18nMsg('popup_status_times_up', "Time's up"),
+                    note: i18nMsg('popup_note_time_up', 'Time for this site has run out.'),
+                    remainingSeconds: 0,
+                    currentTabInfo,
+                };
+                updateUIState(blockedState, currentTabInfo);
+            }
+        } catch (error) {
+            console.error('[POPUP:COUNTDOWN]', error);
         }
-
-        countdownState.secondsLeft -= 1;
     };
 
-    updateCountdown();
-    uiCountdownInterval = window.setInterval(updateCountdown, 1000);
+    void tick();
+    uiCountdownInterval = window.setInterval(() => {
+        void tick();
+    }, 1000);
 }
 
 function setStatusVisual(status) {
@@ -341,17 +534,17 @@ function setStatusVisual(status) {
     siteStatusContent.classList.add('bg-slate-100');
 }
 
-function buildPopupState(storageData, currentTabInfo) {
+function buildPopupState(storageData, currentTabInfo, groupUsageMap) {
     const extensionSettings = storageData?.[STORAGE_KEY] || {};
     const isExtensionActive = storageData?.isExtensionActive !== false;
     const currentUrl = currentTabInfo?.url || '';
     const parsedUrl = currentUrl ? new URL(currentUrl) : null;
     const hostname = normalizeHost(parsedUrl?.hostname || '');
-    const blockedSites = Array.isArray(storageData?.blockedSites) ? storageData.blockedSites.map(normalizeHost) : [];
-    const whitelistedSites = Array.isArray(storageData?.whitelistedSites) ? storageData.whitelistedSites.map(normalizeHost) : [];
+    const whitelistedSites = Array.isArray(storageData?.whitelistedSites) ? storageData.whitelistedSites : [];
     const siteTimers = storageData?.siteTimers && typeof storageData.siteTimers === 'object' ? storageData.siteTimers : {};
-    const currentTimer = siteTimers[hostname];
-    const remainingSeconds = Math.max(0, Number(currentTimer?.remainingSeconds) || DEFAULT_TIME_REMAINING_SECONDS);
+    const gm =
+        groupUsageMap && typeof groupUsageMap === 'object' && !Array.isArray(groupUsageMap) ? groupUsageMap : {};
+    const usageSafe = JSON.parse(JSON.stringify(gm));
 
     if (!isExtensionActive) {
         return {
@@ -359,36 +552,74 @@ function buildPopupState(storageData, currentTabInfo) {
             hostname,
             fullUrl: currentUrl,
             status: 'disabled',
-            statusLabel: 'Disabled',
-            note: 'Extension is currently Disabled',
+            statusLabel: i18nMsg('popup_status_disabled', 'Off'),
+            note: i18nMsg('popup_note_extension_disabled', 'The extension is turned off.'),
             remainingSeconds: null,
             currentTabInfo,
             youtubeSettings: extensionSettings.youtube || {},
         };
     }
 
-    if (whitelistedSites.includes(hostname)) {
+    if (BlocklistPolicy.listMatchesAllowlist(hostname, currentUrl, whitelistedSites)) {
         return {
             isExtensionActive: true,
             hostname,
             fullUrl: currentUrl,
             status: 'whitelisted',
-            statusLabel: 'Whitelisted',
-            note: 'Website này luôn được phép truy cập.',
+            statusLabel: i18nMsg('popup_status_whitelisted', 'Allowed'),
+            note: i18nMsg('popup_note_whitelisted', 'This site is always allowed.'),
             remainingSeconds: null,
             currentTabInfo,
             youtubeSettings: extensionSettings.youtube || {},
         };
     }
 
-    if (blockedSites.includes(hostname) || currentTimer?.isBlocked || remainingSeconds <= 0) {
+    const evalPayload = {
+        isExtensionActive: true,
+        blockAllExceptAllowlist: BlocklistPolicy.isBlockAllExceptAllowlistEnabled(
+            storageData?.blockAllExceptAllowlist,
+        ),
+        blockedGroups: storageData?.blockedGroups,
+        blockedSites: storageData?.blockedSites,
+        whitelistedSites,
+        siteTimers,
+    };
+    const evalResult = GroupTimestampUsage.evaluateBlockingWithGroupUsage(
+        evalPayload,
+        hostname,
+        currentUrl,
+        usageSafe,
+        Date.now(),
+    );
+
+    let remainingSeconds = BlocklistPolicy.DEFAULT_REMAINING_SECONDS;
+    if (!evalResult.blocked && GroupTimestampUsage.hostUsesTimestampBudget(hostname, currentUrl, storageData)) {
+        const gid = GroupTimestampUsage.firstTimestampGroupIdForHost(hostname, currentUrl, storageData);
+        const groups = Array.isArray(storageData?.blockedGroups) ? storageData.blockedGroups : [];
+        const g = groups.find((x) => x && x.id === gid);
+        const cap = GroupTimestampUsage.groupAllowedMs(g);
+        const d = new Date();
+        const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        const entry = GroupTimestampUsage.ensureUsageEntry(usageSafe, gid, today);
+        const used = GroupTimestampUsage.getTotalUsedMs(entry, Date.now());
+        remainingSeconds = Math.max(0, Math.floor((cap - used) / 1000));
+    } else if (!evalResult.blocked) {
+        const currentTimer = siteTimers[hostname];
+        const remRaw = currentTimer && currentTimer.remainingSeconds;
+        const remNum = Number(remRaw);
+        const hasExplicit =
+            currentTimer != null && remRaw !== undefined && remRaw !== null && !Number.isNaN(remNum);
+        remainingSeconds = Math.max(0, hasExplicit ? remNum : BlocklistPolicy.DEFAULT_REMAINING_SECONDS);
+    }
+
+    if (evalResult.blocked) {
         return {
             isExtensionActive: true,
             hostname,
             fullUrl: currentUrl,
             status: 'blocked',
-            statusLabel: "Time's Up",
-            note: 'Website này hiện đang bị chặn.',
+            statusLabel: i18nMsg('popup_status_times_up', "Time's up"),
+            note: i18nMsg('popup_note_blocked', 'This site is currently blocked.'),
             remainingSeconds: 0,
             currentTabInfo,
             youtubeSettings: extensionSettings.youtube || {},
@@ -400,8 +631,8 @@ function buildPopupState(storageData, currentTabInfo) {
         hostname,
         fullUrl: currentUrl,
         status: 'tracking',
-        statusLabel: 'Tracking',
-        note: 'Thời gian đang được theo dõi cho website này.',
+        statusLabel: i18nMsg('popup_status_tracking', 'Tracking'),
+        note: i18nMsg('popup_note_tracking', 'Time is being tracked for this site.'),
         remainingSeconds,
         currentTabInfo,
         youtubeSettings: extensionSettings.youtube || {},
@@ -417,11 +648,11 @@ function updateUIState(state, currentTabInfo) {
     lastRenderedHost = hostname;
 
     if (activeWebsiteName) {
-        activeWebsiteName.textContent = hostname || 'Website';
+        activeWebsiteName.textContent = hostname || i18nMsg('popup_website_placeholder', 'Website');
     }
 
     if (activeWebsiteUrl) {
-        activeWebsiteUrl.textContent = state.fullUrl || 'Không đọc được URL hiện tại.';
+        activeWebsiteUrl.textContent = state.fullUrl || i18nMsg('popup_url_unreadable', 'Could not read the current tab URL.');
     }
 
     updateSiteFavicon(currentTabInfo);
@@ -447,7 +678,9 @@ function updateUIState(state, currentTabInfo) {
     }
 
     if (timeRemainingLabel) {
-        timeRemainingLabel.textContent = state.status === 'whitelisted' ? 'Status' : 'Time Remaining';
+        timeRemainingLabel.textContent = state.status === 'whitelisted'
+            ? i18nMsg('popup_time_status_label', 'Status')
+            : i18nMsg('popup_time_remaining', 'Time remaining');
     }
 
     setStatusVisual(state.status);
@@ -461,37 +694,38 @@ function updateUIState(state, currentTabInfo) {
 
     if (state.status === 'whitelisted') {
         if (timeRemainingValue) {
-            timeRemainingValue.textContent = 'Always Allowed';
+            timeRemainingValue.textContent = i18nMsg('popup_value_always_allowed', 'Always allowed');
         }
         return;
     }
 
     if (state.status === 'blocked') {
         if (timeRemainingValue) {
-            timeRemainingValue.textContent = "Blocked";
+            timeRemainingValue.textContent = i18nMsg('popup_value_blocked', 'Blocked');
         }
         return;
     }
 
-    startUiCountdown(state.remainingSeconds);
+    startUiCountdown();
 }
 
 async function releaseOpeningTimerLock() {
     clearIntervals();
     await removeLocalStorage([OPENING_TIMER_STATE_KEY]);
-    showScreen('mainScreen');
+    popupUiMode = 'main';
+    showScreen('main');
     await initPopup();
 }
 
 function updateOpeningTimerScreen(timerState) {
     if (openingTimerMessage) {
-        openingTimerMessage.textContent = timerState.message || DEFAULT_OPENING_TIMER_MESSAGE;
+        openingTimerMessage.textContent = timerState.message || getDefaultOpeningTimerMessage();
     }
 }
 
 async function startOpeningTimer(timerState) {
     clearIntervals();
-    showScreen('openingTimerWaitScreen');
+    showScreen('timer');
     updateOpeningTimerScreen(timerState);
 
     const updateCountdown = async () => {
@@ -515,15 +749,16 @@ async function startOpeningTimer(timerState) {
 
 async function checkIfBlockedByOpeningTimer(youtubeSettings, currentUrl) {
     if (latestPopupState && latestPopupState.isExtensionActive === false) {
-        showScreen('mainScreen');
+        showScreen(popupUiMode === 'settings' ? 'settings' : 'main');
         return false;
     }
 
     const timerSeconds = getOpeningTimerDurationInSeconds(youtubeSettings);
     const isYouTubeTab = /^https?:\/\/(www\.)?youtube\.com\//i.test(currentUrl || '');
 
-    if (!isYouTubeTab || !youtubeSettings?.openingTimerEnabled || timerSeconds <= 0) {
-        showScreen('mainScreen');
+    const openingTimerAllowed = youtubeSettings?.masterYtMisc !== false && youtubeSettings?.openingTimerEnabled;
+    if (!isYouTubeTab || !openingTimerAllowed || timerSeconds <= 0) {
+        showScreen(popupUiMode === 'settings' ? 'settings' : 'main');
         return false;
     }
 
@@ -542,7 +777,7 @@ async function checkIfBlockedByOpeningTimer(youtubeSettings, currentUrl) {
     const nextTimerState = {
         app: 'youtube',
         endsAt: now + (timerSeconds * 1000),
-        message: DEFAULT_OPENING_TIMER_MESSAGE,
+        message: getDefaultOpeningTimerMessage(),
     };
 
     await setLocalStorage({ [OPENING_TIMER_STATE_KEY]: nextTimerState });
@@ -552,22 +787,34 @@ async function checkIfBlockedByOpeningTimer(youtubeSettings, currentUrl) {
 
 async function refreshPopupView() {
     try {
+        if (globalThis.ExtensionI18n?.reload && globalThis.ExtensionI18n?.apply) {
+            await globalThis.ExtensionI18n.reload();
+            globalThis.ExtensionI18n.apply(document.getElementById('popup-root') || document);
+        }
+
         const currentTabInfo = await queryActiveTab();
-        const [storageData, localSettingsData] = await Promise.all([
+        const [storageData, localSettingsData, groupUsageRaw] = await Promise.all([
             getSyncStorage([
                 STORAGE_KEY,
                 'isExtensionActive',
                 'blockedSites',
+                'blockedGroups',
+                'blockAllExceptAllowlist',
                 'whitelistedSites',
                 'siteTimers',
                 SETTINGS_STORAGE_KEY,
             ]),
             getLocalStorage([SETTINGS_STORAGE_KEY]),
+            getLocalStorage(['vmuGroupUsageTs']),
         ]);
 
         const dashboardSettings = resolveDashboardSettings(storageData, localSettingsData);
         renderPopupActiveToggleVisibility(Boolean(dashboardSettings.hideSwitch));
-        const popupState = buildPopupState(storageData, currentTabInfo);
+        const groupUsageMap =
+            groupUsageRaw && groupUsageRaw.vmuGroupUsageTs && typeof groupUsageRaw.vmuGroupUsageTs === 'object'
+                ? groupUsageRaw.vmuGroupUsageTs
+                : {};
+        const popupState = buildPopupState(storageData, currentTabInfo, groupUsageMap);
         updateUIState(popupState, currentTabInfo);
     } catch (error) {
         console.error('[POPUP:REFRESH_VIEW]', error);
@@ -576,26 +823,49 @@ async function refreshPopupView() {
 
 async function initPopup() {
     try {
+        if (globalThis.ExtensionI18n?.reload && globalThis.ExtensionI18n?.apply) {
+            try {
+                await globalThis.ExtensionI18n.reload();
+            } catch (e) {
+                console.error('[POPUP:I18N_RELOAD]', e);
+            }
+
+            globalThis.ExtensionI18n.apply(document.getElementById('popup-root') || document);
+        }
+
         const currentTabInfo = await queryActiveTab();
-        const [syncData, localSettingsData] = await Promise.all([
+        const [syncData, localSettingsData, groupUsageRaw] = await Promise.all([
             getSyncStorage([
                 STORAGE_KEY,
                 'isExtensionActive',
                 'blockedSites',
+                'blockedGroups',
+                'blockAllExceptAllowlist',
                 'whitelistedSites',
                 'siteTimers',
                 SETTINGS_STORAGE_KEY,
             ]),
             getLocalStorage([SETTINGS_STORAGE_KEY]),
+            getLocalStorage(['vmuGroupUsageTs']),
         ]);
 
         const dashboardSettings = resolveDashboardSettings(syncData, localSettingsData);
         renderPopupActiveToggleVisibility(Boolean(dashboardSettings.hideSwitch));
-        const popupState = buildPopupState(syncData, currentTabInfo);
+        const groupUsageMap =
+            groupUsageRaw && groupUsageRaw.vmuGroupUsageTs && typeof groupUsageRaw.vmuGroupUsageTs === 'object'
+                ? groupUsageRaw.vmuGroupUsageTs
+                : {};
+        const popupState = buildPopupState(syncData, currentTabInfo, groupUsageMap);
         updateUIState(popupState, currentTabInfo);
 
         if (!popupState.isExtensionActive) {
-            showScreen('mainScreen');
+            if (popupUiMode === 'settings') {
+                showScreen('settings');
+                await hydratePopupSettingsForm();
+            } else {
+                showScreen('main');
+            }
+
             return;
         }
 
@@ -605,11 +875,18 @@ async function initPopup() {
             return;
         }
 
-        showScreen('mainScreen');
+        if (popupUiMode === 'settings') {
+            showScreen('settings');
+            await hydratePopupSettingsForm();
+        } else {
+            showScreen('main');
+        }
+
         updateUIState(popupState, currentTabInfo);
     } catch (error) {
         console.error('[POPUP:INIT]', error);
-        showScreen('mainScreen');
+        popupUiMode = 'main';
+        showScreen('main');
     }
 }
 
@@ -619,14 +896,73 @@ if (expandBtn) {
     });
 }
 
+function bindPopupSettingsUi() {
+    if (!popupSettingsBtn || popupSettingsBtn.dataset.bound === 'true') {
+        return;
+    }
+
+    popupSettingsBtn.dataset.bound = 'true';
+    popupSettingsBtn.addEventListener('click', () => {
+        popupUiMode = 'settings';
+        showScreen('settings');
+        void hydratePopupSettingsForm();
+    });
+
+    popupSettingsBack?.addEventListener('click', () => {
+        popupUiMode = 'main';
+        showScreen('main');
+    });
+
+    popupSettingsTheme?.addEventListener('change', async (event) => {
+        await persistPopupDashboardPatch({ theme: event.target.value });
+    });
+
+    popupSettingsShowToggle?.addEventListener('change', async (event) => {
+        await persistPopupDashboardPatch({ hideSwitch: !event.target.checked });
+    });
+
+    popupSettingsFloatingTimer?.addEventListener('change', async (event) => {
+        await persistPopupDashboardPatch({ floatingTimerEnable: Boolean(event.target.checked) });
+    });
+
+    popupSettingsDisableSync?.addEventListener('change', async (event) => {
+        const next = Boolean(event.target.checked);
+        if (next) {
+            const ok = window.confirm('Chỉ lưu trên máy này sẽ gỡ cài đặt bảng điều khiển khỏi đồng bộ Chrome. Tiếp tục?');
+            if (!ok) {
+                event.target.checked = false;
+                return;
+            }
+        }
+
+        await persistPopupDashboardPatch({ disableSync: next });
+    });
+
+    popupOpenFullSettings?.addEventListener('click', () => {
+        chrome.runtime.openOptionsPage();
+    });
+}
+
 bindPopupActiveToggle();
+bindPopupSettingsUi();
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName !== 'sync' && areaName !== 'local') {
         return;
     }
 
-    if (changes.isExtensionActive || changes.blockedSites || changes.whitelistedSites || changes.siteTimers || changes[STORAGE_KEY] || changes[SETTINGS_STORAGE_KEY] || changes[OPENING_TIMER_STATE_KEY]) {
+    if (
+        changes.isExtensionActive ||
+        changes.blockedSites ||
+        changes.blockedGroups ||
+        changes.blockAllExceptAllowlist ||
+        changes.whitelistedSites ||
+        changes.siteTimers ||
+        changes[STORAGE_KEY] ||
+        changes[SETTINGS_STORAGE_KEY] ||
+        changes[OPENING_TIMER_STATE_KEY] ||
+        changes.vmuGroupUsageTs
+    ) {
         void initPopup();
     }
 });

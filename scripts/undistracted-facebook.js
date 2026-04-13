@@ -16,6 +16,27 @@ const LIKE_PAGE_BTN_HIDDEN_ATTR = 'data-sf-fb-likepage-btn-hidden';
 /** Ẩn bảng tin khi Facebook chỉ còn [role="article"] / article / div[aria-posinset] thay vì khung feed đầy đủ. */
 /** Bật hook GraphQL trong page (facebook-feed-network-bridge.js) khi ẩn toàn bộ bảng tin. */
 const FB_HOME_GRAPHQL_BLOCK_ATTR = 'data-sf-block-home-graphql';
+const FB_GRAYSCALE_ATTR = 'sf-fb-grayscale-mode';
+const FB_GRAYSCALE_STYLE_ID = 'sf-fb-grayscale-style';
+
+function ensureFacebookGrayscaleStyle() {
+    if (document.getElementById(FB_GRAYSCALE_STYLE_ID)) {
+        return;
+    }
+    const el = document.createElement('style');
+    el.id = FB_GRAYSCALE_STYLE_ID;
+    el.textContent = `html[${FB_GRAYSCALE_ATTR}="true"]{filter:grayscale(1)!important;}`;
+    (document.head || document.documentElement).appendChild(el);
+}
+
+function syncFacebookGrayscale(enabled) {
+    ensureFacebookGrayscaleStyle();
+    if (enabled) {
+        document.documentElement.setAttribute(FB_GRAYSCALE_ATTR, 'true');
+    } else {
+        document.documentElement.removeAttribute(FB_GRAYSCALE_ATTR);
+    }
+}
 const FB_NEWSFEED_HIDE_ATTR = 'data-sf-hide-fb-newsfeed';
 const FB_NEWSFEED_HIDE_STYLE_ID = 'sf-fb-hide-newsfeed-style';
 const FB_HOME_FEED_ATTR = 'data-sf-fb-home-feed';
@@ -475,6 +496,7 @@ let fbBlockConfig = {
     hideSuggestedPosts: false,
     hideMarketplaceAds: false,
     hideSponsoredPosts: true,
+    grayscaleMode: false,
 };
 
 function mergeFacebookBranch(syncData, localData) {
@@ -536,6 +558,7 @@ function clearFacebookRuntime() {
     if (legacyLogoutBtn) {
         legacyLogoutBtn.remove();
     }
+    document.documentElement.removeAttribute(FB_GRAYSCALE_ATTR);
     /* Không gỡ data-sf-hide-fb-newsfeed / GraphQL / style ở đây — tránh khoảng trống hook + CSS
        trước khi loadFacebookSettings gán lại; tắt hoàn toàn do syncFacebookNewsfeedHideOverlay + nhánh else. */
 }
@@ -2558,10 +2581,8 @@ function hasBlockedHashtagInHaystack(haystack) {
             continue;
         }
         const hashRegex = hashtagRegexCache.get(tag);
+        // Chỉ dùng regex có ranh giới từ; đừng dùng haystack.includes(`#${tag}`) — sẽ chặn nhầm (#cat khớp #category).
         if (hashRegex && hashRegex.test(haystack)) {
-            return true;
-        }
-        if (haystack.includes(`#${tag}`)) {
             return true;
         }
         if (plainHashtagTokenMatchesHaystack(haystack, tag)) {
@@ -3476,6 +3497,7 @@ function loadFacebookSettings() {
             const isHideNavNotificationsEnabled = topNavSectionOn && Boolean(facebookSettings?.hideNavNotifications);
             const isHideNavNewsEnabled = topNavSectionOn && Boolean(facebookSettings?.hideNavNews);
             const isHideNavEventsEnabled = topNavSectionOn && Boolean(facebookSettings?.hideNavEvents);
+            const isGrayscaleEnabled = isExtensionActive && Boolean(facebookSettings?.grayscaleMode);
 
             clearFacebookRuntime();
 
@@ -3653,7 +3675,10 @@ function loadFacebookSettings() {
                 hideSuggestedPosts: isExtensionActive && isSuggestedBlockingEnabled,
                 hideMarketplaceAds: isExtensionActive && isMarketplaceBlockingEnabled,
                 hideSponsoredPosts: isExtensionActive && isSponsoredBlockingEnabled,
+                grayscaleMode: isGrayscaleEnabled,
             };
+
+            syncFacebookGrayscale(isGrayscaleEnabled);
 
             if (isAdBlockEnabled && fbBlockConfig.hideNewsfeed) {
                 document.documentElement.setAttribute(FB_HOME_GRAPHQL_BLOCK_ATTR, 'true');

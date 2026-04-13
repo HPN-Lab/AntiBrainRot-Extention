@@ -6,21 +6,66 @@ const EXTENSION_ACTIVE_KEY = 'isExtensionActive';
 const STYLE_ID = 'antidoom-yt-attribute-style';
 const AUTH_ATTRIBUTE = 'sf-yt-authorized';
 const DEFAULT_YOUTUBE_SETTINGS = {
-    hideHomePage: false,
-    hideShorts: false,
-    hideComments: false,
+    masterYtPlayer: true,
+    masterYtWatch: true,
+    masterYtShorts: true,
+    masterYtThumbnails: true,
+    masterYtNav: true,
+    masterYtAppearance: true,
+    masterYtSearch: true,
+    masterYtFilter: true,
+    masterYtMisc: true,
+    masterYtFuture: true,
+    disableAutoplay: false,
+    autoSkipVideoAds: false,
+    enableTheaterMode: false,
+    autoShowChapters: false,
     hideRecommendedVideos: false,
+    centerWatchContent: false,
+    autoExpandDescription: false,
+    hideComments: false,
+    disableEndCards: false,
+    hideShorts: false,
+    redirectShortsToWatch: false,
     hideThumbnails: false,
     blurThumbnails: false,
+    blackWhiteMode: false,
+    grayscaleMode: false,
+    hideHomePage: false,
     hideSubscriptions: false,
     hideExplore: false,
     hideTopBar: false,
-    disableEndCards: false,
-    blackWhiteMode: false,
-    disableAutoplay: false,
-    enableTheaterMode: false,
-    autoSkipVideoAds: false,
+    sidebarAutoCollapse: false,
+    sidebarAutoExpandPlaylists: false,
+    sidebarAutoExpandSubscriptions: false,
+    filterVideosEnabled: false,
+    filterVideosKeywords: '',
+    filterChannelsEnabled: false,
+    filterChannelsList: '',
+    contextMenuBlockEnabled: false,
+    searchSortBy: '',
+    hideSearchAdsPlanned: false,
+    replaceThumbnailPlanned: false,
+    shortsSlowScrollPlanned: false,
+    hideNavCustomizationPlanned: false,
+    openingTimerEnabled: false,
+    openingTimerValue: 0,
+    openingTimerUnit: 'seconds',
 };
+
+const YOUTUBE_MASTER_CHILDREN = {
+    masterYtPlayer: ['disableAutoplay', 'autoSkipVideoAds', 'enableTheaterMode', 'autoShowChapters'],
+    masterYtWatch: ['hideRecommendedVideos', 'centerWatchContent', 'autoExpandDescription', 'hideComments', 'disableEndCards'],
+    masterYtShorts: ['hideShorts', 'redirectShortsToWatch'],
+    masterYtThumbnails: ['hideThumbnails', 'blurThumbnails', 'blackWhiteMode', 'grayscaleMode'],
+    masterYtNav: ['hideHomePage', 'hideSubscriptions', 'hideExplore', 'hideTopBar'],
+    masterYtAppearance: ['sidebarAutoCollapse', 'sidebarAutoExpandPlaylists', 'sidebarAutoExpandSubscriptions'],
+    masterYtSearch: ['hideSearchAdsPlanned', 'searchSortBy'],
+    masterYtFilter: ['filterVideosEnabled', 'filterChannelsEnabled', 'contextMenuBlockEnabled'],
+    masterYtMisc: ['openingTimerEnabled', 'openingTimerValue', 'openingTimerUnit'],
+    masterYtFuture: ['replaceThumbnailPlanned', 'shortsSlowScrollPlanned', 'hideNavCustomizationPlanned'],
+};
+
 const SETTING_ATTRIBUTE_MAP = {
     hideHomePage: 'sf-yt-hide-home-page',
     hideShorts: 'sf-yt-hide-shorts',
@@ -34,7 +79,24 @@ const SETTING_ATTRIBUTE_MAP = {
     disableEndCards: 'sf-yt-hide-cards',
     blackWhiteMode: 'sf-yt-black-white-mode',
     disableAutoplay: 'sf-yt-hide-autoplay',
+    hideSearchAdsPlanned: 'sf-yt-hide-search-ads-planned',
 };
+
+const CONTENT_FILTER_TAGS = [
+    'ytd-rich-item-renderer',
+    'ytd-video-renderer',
+    'ytd-grid-video-renderer',
+    'ytd-rich-grid-slim-media',
+    'ytd-reel-item-renderer',
+    'ytd-compact-video-renderer',
+    'ytd-playlist-renderer',
+    'ytd-playlist-video-renderer',
+    'ytd-reel-video-renderer',
+    'ytd-channel-renderer',
+    'ytd-radio-renderer',
+    'ytd-universal-watch-card-renderer',
+    'yt-lockup-view-model',
+];
 const SHORTS_TITLES = new Set(['shorts', '\u30b7\u30e7\u30fc\u30c8']);
 const AUTOPLAY_SELECTORS = [
     '.ytp-autonav-toggle-button[aria-checked]',
@@ -117,9 +179,24 @@ html[sf-yt-hide-subscriptions="true"] ytd-browse[page-subtype="subscriptions"] #
 }
 
 html[sf-yt-hide-explore="true"] .yt-simple-endpoint[href^="/feed/explore"],
+html[sf-yt-hide-explore="true"] .yt-simple-endpoint[href="/feed/trending"],
+html[sf-yt-hide-explore="true"] .yt-simple-endpoint[href^="/feed/trending?"],
 html[sf-yt-hide-explore="true"] ytd-guide-entry-renderer a[href="/feed/explore"],
+html[sf-yt-hide-explore="true"] ytd-guide-entry-renderer a[href="/feed/trending"],
 html[sf-yt-hide-explore="true"] ytd-mini-guide-entry-renderer a[href="/feed/explore"],
-html[sf-yt-hide-explore="true"] ytd-browse[page-subtype="explore"] #contents {
+html[sf-yt-hide-explore="true"] ytd-mini-guide-entry-renderer a[href="/feed/trending"],
+html[sf-yt-hide-explore="true"] ytd-browse[role="main"][page-subtype="explore"] #primary,
+html[sf-yt-hide-explore="true"] ytd-page-manager ytd-browse[page-subtype="explore"] ytd-rich-grid-renderer,
+html[sf-yt-hide-explore="true"] ytd-page-manager ytd-browse[page-subtype="explore"] #contents,
+html[sf-yt-hide-explore="true"] ytd-page-manager ytd-browse[page-subtype="explore"] #primary,
+html[sf-yt-hide-explore="true"] ytd-two-column-browse-results-renderer[page-subtype="explore"] #primary,
+html[sf-yt-hide-explore="true"] ytd-two-column-browse-results-renderer[page-subtype="explore"] #contents,
+html[sf-yt-hide-explore="true"] ytd-browse[role="main"][page-subtype="trending"] #primary,
+html[sf-yt-hide-explore="true"] ytd-page-manager ytd-browse[page-subtype="trending"] ytd-rich-grid-renderer,
+html[sf-yt-hide-explore="true"] ytd-page-manager ytd-browse[page-subtype="trending"] #contents,
+html[sf-yt-hide-explore="true"] ytd-page-manager ytd-browse[page-subtype="trending"] #primary,
+html[sf-yt-hide-explore="true"] ytd-two-column-browse-results-renderer[page-subtype="trending"] #primary,
+html[sf-yt-hide-explore="true"] ytd-two-column-browse-results-renderer[page-subtype="trending"] #contents {
     display: none !important;
 }
 
@@ -150,6 +227,19 @@ html[sf-yt-hide-autoplay="true"] ytd-watch-flexy:not([playlist]) .ytp-next-butto
 html[sf-yt-black-white-mode="true"] {
     filter: grayscale(1) !important;
 }
+
+html[sf-yt-center-watch="true"] ytd-watch-flexy #columns.ytd-watch-flexy,
+html[sf-yt-center-watch="true"] ytd-watch-flexy #primary.ytd-watch-flexy {
+    margin-left: auto !important;
+    margin-right: auto !important;
+    max-width: min(1080px, 100%) !important;
+}
+
+html[sf-yt-hide-search-ads-planned="true"] ytd-search-pyv-renderer,
+html[sf-yt-hide-search-ads-planned="true"] ytd-ad-slot-renderer,
+html[sf-yt-hide-search-ads-planned="true"] ytd-in-feed-ad-layout-renderer {
+    display: none !important;
+}
 `;
 let cachedSettings = { ...DEFAULT_YOUTUBE_SETTINGS };
 let runtimeObserver = null;
@@ -162,10 +252,39 @@ let theaterModeListenerAttached = false;
 let theaterModeHandler = null;
 let shortsPopstateHandler = null;
 let shortsNavigateHandler = null;
+let shortsRedirectHandler = null;
+let descriptionObserver = null;
+let filterObserver = null;
+let filterDebounceTimer = null;
+let contextObserver = null;
+let sidebarGuideObserver = null;
+let sidebarTickTimer = null;
+const FILTER_CHECKED_ATTR = 'data-sf-yt-filter-checked';
 let isExtensionActive = true;
 
 function mergeYouTubeSettings(storedSettings = {}) {
     return { ...DEFAULT_YOUTUBE_SETTINGS, ...(storedSettings.youtube || {}) };
+}
+
+function resolveYoutubeForRuntime(settings) {
+    const out = { ...settings };
+    Object.entries(YOUTUBE_MASTER_CHILDREN).forEach(([masterKey, keys]) => {
+        if (settings[masterKey] !== false) {
+            return;
+        }
+        keys.forEach((k) => {
+            if (k === 'searchSortBy') {
+                out[k] = '';
+            } else if (k === 'openingTimerUnit') {
+                out[k] = 'seconds';
+            } else if (k === 'openingTimerValue') {
+                out[k] = 0;
+            } else if (typeof DEFAULT_YOUTUBE_SETTINGS[k] === 'boolean') {
+                out[k] = false;
+            }
+        });
+    });
+    return out;
 }
 
 function debounce(callback, delay) {
@@ -201,8 +320,8 @@ function clearSettingsHtmlAttributes() {
     Object.values(SETTING_ATTRIBUTE_MAP).forEach((attributeName) => {
         document.documentElement.removeAttribute(attributeName);
     });
+    document.documentElement.removeAttribute('sf-yt-center-watch');
 
-    document.documentElement.removeAttribute('data-vmu-hide-shorts');
     document.documentElement.removeAttribute(AUTH_ATTRIBUTE);
 }
 
@@ -217,8 +336,18 @@ function syncSettingsToHtmlAttributes(settings) {
     ensureStyleElement();
 
     Object.entries(SETTING_ATTRIBUTE_MAP).forEach(([settingKey, attributeName]) => {
+        if (settingKey === 'blackWhiteMode') {
+            setBooleanHtmlAttribute(
+                attributeName,
+                Boolean(settings.blackWhiteMode || settings.grayscaleMode),
+            );
+            return;
+        }
         setBooleanHtmlAttribute(attributeName, Boolean(settings[settingKey]));
     });
+
+    const centerOn = Boolean(settings.centerWatchContent && settings.hideRecommendedVideos);
+    setBooleanHtmlAttribute('sf-yt-center-watch', centerOn);
 }
 
 function syncAuthorizedAttribute() {
@@ -372,13 +501,452 @@ function resetTheaterModeObserver() {
     }
 }
 
+function getEffectiveYoutubeSettings() {
+    return resolveYoutubeForRuntime(cachedSettings);
+}
+
+function teardownAuxiliaryObservers() {
+    if (descriptionObserver) {
+        descriptionObserver.disconnect();
+        descriptionObserver = null;
+    }
+    if (filterObserver) {
+        filterObserver.disconnect();
+        filterObserver = null;
+    }
+    if (filterDebounceTimer) {
+        window.clearTimeout(filterDebounceTimer);
+        filterDebounceTimer = null;
+    }
+    if (contextObserver) {
+        contextObserver.disconnect();
+        contextObserver = null;
+    }
+    if (sidebarGuideObserver) {
+        sidebarGuideObserver.disconnect();
+        sidebarGuideObserver = null;
+    }
+    if (sidebarTickTimer) {
+        window.clearInterval(sidebarTickTimer);
+        sidebarTickTimer = null;
+    }
+    document.querySelectorAll(`[${FILTER_CHECKED_ATTR}]`).forEach((el) => {
+        el.removeAttribute(FILTER_CHECKED_ATTR);
+        if (el instanceof HTMLElement) {
+            el.style.removeProperty('display');
+        }
+    });
+}
+
+function tryClickDescriptionExpand() {
+    const btn = document.querySelector('tp-yt-paper-button#expand:not([hidden])');
+    if (btn instanceof HTMLElement) {
+        btn.click();
+        return true;
+    }
+    return false;
+}
+
+function setupAutoExpandDescription(settings) {
+    if (!settings.autoExpandDescription) {
+        return;
+    }
+    if (tryClickDescriptionExpand()) {
+        return;
+    }
+    if (descriptionObserver) {
+        descriptionObserver.disconnect();
+    }
+    descriptionObserver = new MutationObserver(() => {
+        if (tryClickDescriptionExpand()) {
+            descriptionObserver.disconnect();
+            descriptionObserver = null;
+        }
+    });
+    descriptionObserver.observe(document.body, { childList: true, subtree: true, attributes: true });
+    window.setTimeout(() => {
+        if (descriptionObserver) {
+            descriptionObserver.disconnect();
+            descriptionObserver = null;
+        }
+    }, 8000);
+}
+
+function setupAutoShowChapters(settings) {
+    if (!settings.autoShowChapters) {
+        return;
+    }
+    document.querySelectorAll(
+        'ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-macro-markers-auto-chapters"][hide],'
+        + ' ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-macro-markers-description-chapters"][hide]',
+    ).forEach((p) => {
+        p.removeAttribute('hide');
+    });
+}
+
+function parseFilterLines(raw) {
+    if (typeof raw !== 'string' || !raw.trim()) {
+        return [];
+    }
+    const seen = new Set();
+    const out = [];
+    raw.split(/\r?\n/).forEach((line) => {
+        const t = line.trim();
+        if (t && !seen.has(t)) {
+            seen.add(t);
+            out.push(t);
+        }
+    });
+    return out;
+}
+
+function filterCardForRules(element, videoRules, channelRules) {
+    const itemText = element.textContent || '';
+    for (let i = 0; i < videoRules.length; i += 1) {
+        const rule = videoRules[i];
+        if (rule.length < 2) {
+            continue;
+        }
+        const esc = rule.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const rx = new RegExp(esc, 'gi');
+        if (rx.test(itemText)) {
+            element.style.setProperty('display', 'none', 'important');
+            return;
+        }
+    }
+    for (let j = 0; j < channelRules.length; j += 1) {
+        const rule = channelRules[j];
+        if (rule.length < 2) {
+            continue;
+        }
+        const esc = rule.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        try {
+            const nodes = element.querySelectorAll(`a[href*="${esc}" i], [aria-label*="${esc}" i]`);
+            if (nodes.length > 0) {
+                element.style.setProperty('display', 'none', 'important');
+                return;
+            }
+        } catch {
+            /* invalid selector — skip */
+        }
+    }
+}
+
+function runContentFilterScan() {
+    const settings = getEffectiveYoutubeSettings();
+    const videoOn = Boolean(settings.filterVideosEnabled);
+    const channelOn = Boolean(settings.filterChannelsEnabled);
+    if (!videoOn && !channelOn) {
+        return;
+    }
+    const videoRules = videoOn ? parseFilterLines(settings.filterVideosKeywords || '') : [];
+    const channelRules = channelOn ? parseFilterLines(settings.filterChannelsList || '') : [];
+    if (videoRules.length === 0 && channelRules.length === 0) {
+        return;
+    }
+    const selector = CONTENT_FILTER_TAGS.map((tag) => `${tag}:not([${FILTER_CHECKED_ATTR}])`).join(', ');
+    document.querySelectorAll(selector).forEach((element) => {
+        if (!(element instanceof HTMLElement)) {
+            return;
+        }
+        const tag = element.tagName.toLowerCase();
+        const isCardLike = (
+            (element.querySelector('#thumbnail') || tag === 'ytd-channel-renderer')
+            && tag !== 'ytd-watch-metadata'
+        ) || tag === 'ytd-rich-item-renderer' || tag === 'yt-lockup-view-model';
+        if (!isCardLike) {
+            return;
+        }
+        filterCardForRules(element, videoRules, channelRules);
+        element.setAttribute(FILTER_CHECKED_ATTR, '1');
+    });
+}
+
+function scheduleContentFilterScan() {
+    const settings = getEffectiveYoutubeSettings();
+    const videoOn = Boolean(settings.filterVideosEnabled);
+    const channelOn = Boolean(settings.filterChannelsEnabled);
+    if (!videoOn && !channelOn) {
+        return;
+    }
+    if (filterDebounceTimer) {
+        window.clearTimeout(filterDebounceTimer);
+    }
+    filterDebounceTimer = window.setTimeout(() => {
+        filterDebounceTimer = null;
+        runContentFilterScan();
+    }, 200);
+}
+
+function setupContentFilter(settings) {
+    if (filterObserver) {
+        filterObserver.disconnect();
+        filterObserver = null;
+    }
+    const videoOn = Boolean(settings.filterVideosEnabled);
+    const channelOn = Boolean(settings.filterChannelsEnabled);
+    if (!videoOn && !channelOn) {
+        return;
+    }
+    if (!document.body) {
+        return;
+    }
+    filterObserver = new MutationObserver(() => {
+        scheduleContentFilterScan();
+    });
+    filterObserver.observe(document.body, { childList: true, subtree: true });
+    runContentFilterScan();
+}
+
+function appendContextBlockButton(itemsRoot, label, onActivate) {
+    if (!itemsRoot || itemsRoot.querySelector(`[data-sf-yt-ctx="${label}"]`)) {
+        return;
+    }
+    const wrap = document.createElement('div');
+    wrap.className = 'style-scope ytd-menu-service-item-renderer';
+    wrap.setAttribute('data-sf-yt-ctx', label);
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'yt-simple-endpoint style-scope yt-formatted-string';
+    btn.style.cssText = 'display:block;width:100%;padding:10px 16px;text-align:left;font-size:13px;';
+    btn.textContent = label;
+    btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onActivate();
+    });
+    wrap.appendChild(btn);
+    itemsRoot.appendChild(wrap);
+}
+
+function setupContextMenuBlock(settings) {
+    if (contextObserver) {
+        contextObserver.disconnect();
+        contextObserver = null;
+    }
+    if (!settings.contextMenuBlockEnabled) {
+        return;
+    }
+    const tryInject = () => {
+        const items = document.querySelector('ytd-menu-popup-renderer #items')
+            || document.querySelector('yt-sheet-view-model .ytListViewModelHost');
+        if (!(items instanceof HTMLElement)) {
+            return;
+        }
+        appendContextBlockButton(items, 'SF: block this channel', () => {
+            const href = window.location.href;
+            chrome.storage.sync.get([STORAGE_KEY], (data) => {
+                const merged = mergeYouTubeSettings(data[STORAGE_KEY] || {});
+                const lines = parseFilterLines(merged.filterChannelsList || '');
+                if (!lines.includes(href)) {
+                    lines.unshift(href);
+                }
+                merged.filterChannelsList = lines.join('\n');
+                merged.filterChannelsEnabled = true;
+                chrome.storage.sync.set({
+                    [STORAGE_KEY]: {
+                        ...(data[STORAGE_KEY] || {}),
+                        youtube: merged,
+                    },
+                });
+            });
+        });
+        appendContextBlockButton(items, 'SF: block this video title', () => {
+            const titleEl = document.querySelector('h1.ytd-watch-metadata yt-formatted-string, ytd-watch-metadata h1 yt-formatted-string');
+            const title = (titleEl && titleEl.textContent) ? titleEl.textContent.trim() : '';
+            if (!title) {
+                return;
+            }
+            chrome.storage.sync.get([STORAGE_KEY], (data) => {
+                const merged = mergeYouTubeSettings(data[STORAGE_KEY] || {});
+                const lines = parseFilterLines(merged.filterVideosKeywords || '');
+                if (!lines.includes(title)) {
+                    lines.unshift(title);
+                }
+                merged.filterVideosKeywords = lines.join('\n');
+                merged.filterVideosEnabled = true;
+                chrome.storage.sync.set({
+                    [STORAGE_KEY]: {
+                        ...(data[STORAGE_KEY] || {}),
+                        youtube: merged,
+                    },
+                });
+            });
+        });
+    };
+    contextObserver = new MutationObserver(() => {
+        tryInject();
+    });
+    if (document.body) {
+        contextObserver.observe(document.body, { childList: true, subtree: true });
+    }
+    tryInject();
+}
+
+function tryCollapseGuide() {
+    const app = document.querySelector('ytd-app[guide-persistent-and-visible]');
+    if (!(app instanceof HTMLElement)) {
+        return;
+    }
+    const burger = document.querySelector('ytd-app[guide-persistent-and-visible] #masthead #guide-button');
+    if (burger instanceof HTMLElement) {
+        burger.click();
+    }
+}
+
+function tryExpandGuideSection(selector) {
+    const btn = document.querySelector(selector);
+    if (btn instanceof HTMLElement) {
+        btn.click();
+    }
+}
+
+function setupSidebarAppearance(settings) {
+    if (sidebarGuideObserver) {
+        sidebarGuideObserver.disconnect();
+        sidebarGuideObserver = null;
+    }
+    if (sidebarTickTimer) {
+        window.clearInterval(sidebarTickTimer);
+        sidebarTickTimer = null;
+    }
+    const any = settings.sidebarAutoCollapse || settings.sidebarAutoExpandPlaylists || settings.sidebarAutoExpandSubscriptions;
+    if (!any) {
+        return;
+    }
+    if (settings.sidebarAutoCollapse) {
+        tryCollapseGuide();
+        sidebarGuideObserver = new MutationObserver(() => {
+            tryCollapseGuide();
+        });
+        if (document.body) {
+            sidebarGuideObserver.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['guide-persistent-and-visible'] });
+        }
+    }
+    sidebarTickTimer = window.setInterval(() => {
+        if (settings.sidebarAutoExpandPlaylists) {
+            tryExpandGuideSection(
+                "tp-yt-app-drawer#guide #sections #items ytd-guide-collapsible-section-entry-renderer:has(a[href*='feed/you']) #expander-item",
+            );
+        }
+        if (settings.sidebarAutoExpandSubscriptions) {
+            tryExpandGuideSection(
+                'tp-yt-app-drawer#guide #sections #items ytd-guide-section-renderer:nth-child(2) #expander-item',
+            );
+        }
+    }, 2500);
+}
+
+function getSearchSortSp(sortBy) {
+    if (sortBy === 'uploadDate') {
+        return 'EgIIBQ';
+    }
+    if (sortBy === 'viewCount') {
+        return 'CAM';
+    }
+    if (sortBy === 'rating') {
+        return 'CAE';
+    }
+    return null;
+}
+
+function tryApplySearchSort(settings) {
+    const sortBy = settings.searchSortBy;
+    if (!sortBy || sortBy === 'relevance') {
+        return;
+    }
+    const spValue = getSearchSortSp(sortBy);
+    if (!spValue) {
+        return;
+    }
+    let url;
+    try {
+        url = new URL(window.location.href);
+    } catch {
+        return;
+    }
+    if (url.hostname.replace(/^www\./, '') !== 'youtube.com' || url.pathname !== '/results') {
+        return;
+    }
+    if (!url.searchParams.get('search_query')) {
+        return;
+    }
+    const currentSp = (url.searchParams.get('sp') || '').replace(/=+$/g, '');
+    if (currentSp === spValue) {
+        return;
+    }
+    const guardKey = '__sf_yt_search_sort__';
+    const guardVal = `${spValue}::${url.searchParams.get('search_query')}`;
+    if (sessionStorage.getItem(guardKey) === guardVal) {
+        return;
+    }
+    sessionStorage.setItem(guardKey, guardVal);
+    url.searchParams.set('sp', spValue);
+    window.location.replace(url.toString());
+}
+
+function maybeRedirectShortsToWatch(settings) {
+    if (!settings.redirectShortsToWatch) {
+        return;
+    }
+    const m = window.location.pathname.match(/^\/shorts\/([^/?#]+)/);
+    if (!m) {
+        return;
+    }
+    const id = m[1];
+    const target = `${window.location.origin}/watch?v=${encodeURIComponent(id)}`;
+    if (window.location.href.split('#')[0] !== target) {
+        window.location.replace(target);
+    }
+}
+
+function setupShortsDomAndRedirect(settings) {
+    if (shortsPopstateHandler) {
+        window.removeEventListener('popstate', shortsPopstateHandler);
+        shortsPopstateHandler = null;
+    }
+    if (shortsNavigateHandler) {
+        document.removeEventListener('yt-navigate-finish', shortsNavigateHandler);
+        shortsNavigateHandler = null;
+    }
+    if (shortsRedirectHandler) {
+        window.removeEventListener('popstate', shortsRedirectHandler);
+        document.removeEventListener('yt-navigate-finish', shortsRedirectHandler);
+        shortsRedirectHandler = null;
+    }
+
+    const hideShorts = Boolean(settings.hideShorts);
+    const redirectOn = Boolean(settings.redirectShortsToWatch);
+
+    if (redirectOn) {
+        shortsRedirectHandler = () => {
+            maybeRedirectShortsToWatch(resolveYoutubeForRuntime(cachedSettings));
+        };
+        window.addEventListener('popstate', shortsRedirectHandler);
+        document.addEventListener('yt-navigate-finish', shortsRedirectHandler);
+        maybeRedirectShortsToWatch(settings);
+    }
+
+    if (hideShorts) {
+        shortsPopstateHandler = () => {
+            hideShortsNavigationItems(Boolean(resolveYoutubeForRuntime(cachedSettings).hideShorts));
+        };
+        window.addEventListener('popstate', shortsPopstateHandler);
+        shortsNavigateHandler = () => {
+            hideShortsNavigationItems(Boolean(resolveYoutubeForRuntime(cachedSettings).hideShorts));
+        };
+        document.addEventListener('yt-navigate-finish', shortsNavigateHandler);
+    }
+}
+
 function disableYouTubeFeatures() {
+    teardownAuxiliaryObservers();
     cachedSettings = { ...DEFAULT_YOUTUBE_SETTINGS };
     clearSettingsHtmlAttributes();
     hideShortsNavigationItems(false);
     resetAutoplayHunter();
     resetTheaterModeObserver();
-    enforceShortsWipeout(false);
+    setupShortsDomAndRedirect(resolveYoutubeForRuntime(cachedSettings));
     toggleAdSkipper(false);
 
     if (runtimeObserver) {
@@ -394,63 +962,6 @@ function disableYouTubeFeatures() {
     }
 }
 
-function enforceShortsWipeout(isActive) {
-    const updateShortsAttribute = (enabled) => {
-        const nextValue = enabled ? 'true' : 'false';
-        if (document.documentElement.getAttribute('data-vmu-hide-shorts') !== nextValue) {
-            document.documentElement.setAttribute('data-vmu-hide-shorts', nextValue);
-        }
-    };
-
-    const redirectIfShortsPage = () => {
-        if (!window.location.pathname.startsWith('/shorts/')) {
-            return;
-        }
-
-        const redirectedUrl = window.location.href.replace('/shorts/', '/watch?v=');
-        if (redirectedUrl !== window.location.href) {
-            // Replace avoids adding a noisy shorts page entry into browser history.
-            window.location.replace(redirectedUrl);
-        }
-    };
-
-    if (!isActive) {
-        updateShortsAttribute(false);
-
-        if (shortsPopstateHandler) {
-            window.removeEventListener('popstate', shortsPopstateHandler);
-            shortsPopstateHandler = null;
-        }
-
-        if (shortsNavigateHandler) {
-            document.removeEventListener('yt-navigate-finish', shortsNavigateHandler);
-            shortsNavigateHandler = null;
-        }
-
-        return;
-    }
-
-    updateShortsAttribute(true);
-
-    if (!shortsPopstateHandler) {
-        shortsPopstateHandler = () => {
-            updateShortsAttribute(true);
-            redirectIfShortsPage();
-        };
-        window.addEventListener('popstate', shortsPopstateHandler);
-    }
-
-    if (!shortsNavigateHandler) {
-        shortsNavigateHandler = () => {
-            updateShortsAttribute(true);
-            redirectIfShortsPage();
-        };
-        document.addEventListener('yt-navigate-finish', shortsNavigateHandler);
-    }
-
-    redirectIfShortsPage();
-}
-
 function initYouTubeFeatures(settings) {
     if (settings.disableAutoplay) {
         enforceAutoDisableAutoplay();
@@ -464,7 +975,7 @@ function initYouTubeFeatures(settings) {
         resetTheaterModeObserver();
     }
 
-    enforceShortsWipeout(Boolean(settings.hideShorts));
+    setupShortsDomAndRedirect(settings);
 }
 
 function toggleAdSkipper(isActive) {
@@ -548,7 +1059,7 @@ function applyRuntimeDomEffects() {
     }
 
     syncAuthorizedAttribute();
-    hideShortsNavigationItems(cachedSettings.hideShorts);
+    hideShortsNavigationItems(Boolean(getEffectiveYoutubeSettings().hideShorts));
 }
 
 const scheduleRuntimeDomEffects = debounce(() => {
@@ -598,9 +1109,16 @@ function applySettings(settings) {
     }
 
     cachedSettings = settings;
-    syncSettingsToHtmlAttributes(settings);
-    initYouTubeFeatures(settings);
-    toggleAdSkipper(settings.autoSkipVideoAds);
+    const resolved = resolveYoutubeForRuntime(settings);
+    syncSettingsToHtmlAttributes(resolved);
+    initYouTubeFeatures(resolved);
+    toggleAdSkipper(Boolean(resolved.autoSkipVideoAds));
+    setupAutoExpandDescription(resolved);
+    setupAutoShowChapters(resolved);
+    setupContentFilter(resolved);
+    setupContextMenuBlock(resolved);
+    setupSidebarAppearance(resolved);
+    tryApplySearchSort(resolved);
     scheduleRuntimeDomEffects();
 }
 
@@ -621,9 +1139,15 @@ function handleNavigationEvent() {
         return;
     }
 
+    const resolved = resolveYoutubeForRuntime(cachedSettings);
+
     if (lastNavigationHref === location.href) {
         observeRuntimeContainer();
-        initYouTubeFeatures(cachedSettings);
+        initYouTubeFeatures(resolved);
+        setupAutoExpandDescription(resolved);
+        setupAutoShowChapters(resolved);
+        scheduleContentFilterScan();
+        tryApplySearchSort(resolved);
         scheduleRuntimeDomEffects();
         return;
     }
@@ -631,7 +1155,11 @@ function handleNavigationEvent() {
     lastNavigationHref = location.href;
     observedContainer = null;
     observeRuntimeContainer();
-    initYouTubeFeatures(cachedSettings);
+    initYouTubeFeatures(resolved);
+    setupAutoExpandDescription(resolved);
+    setupAutoShowChapters(resolved);
+    scheduleContentFilterScan();
+    tryApplySearchSort(resolved);
     scheduleRuntimeDomEffects();
 }
 

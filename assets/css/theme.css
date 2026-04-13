@@ -134,6 +134,7 @@ body {
     color: var(--theme-title);
     font-family: var(--theme-font-heading);
     font-weight: 600;
+    transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out, filter 0.2s ease-in-out;
 }
 
 .theme-button:hover {
@@ -370,10 +371,11 @@ button.theme-switch:disabled {
     border: 1px solid var(--theme-primary-border);
     background: var(--theme-primary-soft);
     color: var(--theme-primary-soft-text);
-    border-radius: 8px;
-    padding: 6px 10px;
+    border-radius: 9999px;
+    padding: 8px 16px;
     font-size: 12px;
     font-weight: 700;
+    transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
 }
 
 .fb-hashtag-add-btn:disabled {
@@ -463,9 +465,18 @@ button.theme-switch:disabled {
     z-index: 1;
     width: min(760px, calc(100vw - 32px));
     margin: 9vh auto 0;
-    border-radius: 12px;
+    border-radius: 1rem;
     border: 1px solid var(--theme-border);
-    box-shadow: 0 18px 45px rgba(15, 23, 42, 0.26);
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.08), 0 2px 4px -2px rgb(0 0 0 / 0.06);
+}
+
+:root[data-theme="dark"] .fb-hashtag-modal__panel {
+    box-shadow: none;
+}
+
+/* Xác nhận (trùng lặp, xóa, …) — luôn trên modal nhập trang / nhóm mới */
+#dashboard-confirm-modal.dashboard-clear-confirm {
+    z-index: 2147483647;
 }
 
 /* Popup xác nhận «Xóa hết» — kiểu tiêu đề + nội dung + HỦY / XÓA HẾT */
@@ -474,9 +485,13 @@ button.theme-switch:disabled {
     max-width: 420px;
     margin: 12vh auto 0;
     padding: 0;
-    border-radius: 10px;
-    box-shadow: 0 20px 50px rgba(15, 23, 42, 0.22);
+    border-radius: 1rem;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.08), 0 2px 4px -2px rgb(0 0 0 / 0.06);
     overflow: hidden;
+}
+
+:root[data-theme="dark"] .dashboard-clear-confirm .dashboard-clear-confirm__panel {
+    box-shadow: none;
 }
 
 .dashboard-clear-confirm__inner {
@@ -639,4 +654,403 @@ summary {
         transform: translateX(16px);
     }
 
+}
+
+/* Ô số giờ/phút: bỏ mũi tên trình duyệt (tránh vệt trắng / tràn layout) */
+.block-group-num-input {
+    appearance: textfield;
+    -moz-appearance: textfield;
+}
+
+.block-group-num-input::-webkit-outer-spin-button,
+.block-group-num-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+/* Block groups: Time Left — vuông bo góc viền mỏng, dark theme */
+:root[data-theme="dark"] .block-group-timer {
+    border-color: #2dd4bf;
+}
+
+:root[data-theme="dark"] .block-group-timer span:first-child {
+    color: #5eead4;
+}
+
+:root[data-theme="dark"] .block-group-timer span:last-child {
+    color: #99f6e4;
+}
+
+/*
+ * Schedule (tab): ô giờ gọn — khung ôm sát nội dung; WebKit kéo icon sát chữ (không kéo full width).
+ */
+.dashboard-schedule-time-wrap {
+    display: inline-block;
+    width: fit-content;
+    max-width: 100%;
+    vertical-align: top;
+}
+
+input[type="time"].dashboard-schedule-time-input {
+    display: block;
+    width: 9rem;
+    min-width: 9rem;
+    max-width: 9rem;
+    box-sizing: border-box;
+}
+
+input[type="time"].dashboard-schedule-time-input::-webkit-datetime-edit {
+    padding: 0;
+}
+
+input[type="time"].dashboard-schedule-time-input::-webkit-datetime-edit-fields-wrapper {
+    padding: 0;
+}
+
+input[type="time"].dashboard-schedule-time-input::-webkit-datetime-edit-text {
+    padding: 0 0.02em;
+}
+
+input[type="time"].dashboard-schedule-time-input::-webkit-datetime-edit-hour-field,
+input[type="time"].dashboard-schedule-time-input::-webkit-datetime-edit-minute-field,
+input[type="time"].dashboard-schedule-time-input::-webkit-datetime-edit-ampm-field {
+    padding: 0 1px;
+}
+
+input[type="time"].dashboard-schedule-time-input::-webkit-calendar-picker-indicator {
+    margin: 0;
+    margin-inline-start: -0.35rem;
+    padding: 0;
+    cursor: pointer;
+    opacity: 0.9;
+}
+
+/* Danh sách nhóm chặn khi bật «Chỉ Allowlist» — vô hiệu hóa tương tác, làm mờ nhẹ */
+#blocked-groups-list.blocked-groups-list--locked {
+    opacity: 0.62;
+    transition: opacity 0.15s ease;
+}
+
+:root[data-theme="dark"] #blocked-groups-list.blocked-groups-list--locked {
+    opacity: 0.52;
+}
+
+/* Modal “Nhóm chặn mới”: khóa cuộn nền, không đẩy layout */
+body.blocked-new-group-modal-open {
+    overflow: hidden;
+}
+
+/*
+ * Modal “Nhóm chặn mới” — CSS tường minh (không phụ thuộc Tailwind JIT quét dashboard.html).
+ * fixed + fullscreen backdrop + căn giữa panel.
+ */
+#blocked-new-group-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 2147483646;
+    box-sizing: border-box;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+#blocked-new-group-modal.is-open {
+    display: flex !important;
+    pointer-events: auto;
+}
+
+#blocked-new-group-backdrop {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background: rgba(15, 23, 42, 0.55);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+    pointer-events: auto;
+    cursor: default;
+}
+
+/* Giống thẻ In-App list (rounded-2xl, px-4 py-4 / sm:px-6 sm:py-5) + shadow nhẹ như theme-dashed-panel */
+#blocked-new-group-panel {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 640px;
+    max-height: min(92vh, 880px);
+    margin: 0;
+    flex-shrink: 0;
+    pointer-events: auto;
+    box-sizing: border-box;
+    padding: 1.5rem;
+    border-radius: 1.5rem;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.08), 0 2px 4px -2px rgb(0 0 0 / 0.06);
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+@media (min-width: 640px) {
+    #blocked-new-group-panel {
+        padding: 1.5rem 1.75rem;
+    }
+}
+
+.blocked-new-group-modal__footer {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    margin-top: 2rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--theme-border);
+}
+
+#blocked-modal-cancel,
+#blocked-modal-save {
+    border-radius: 10px;
+    min-height: 2.75rem;
+    padding: 0.5rem 1.25rem;
+    font-family: var(--theme-font-body);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: opacity 0.2s ease, filter 0.2s ease, background-color 0.2s ease;
+}
+
+#blocked-modal-cancel {
+    border: 1px solid var(--theme-border);
+    background: var(--theme-soft-surface);
+    color: var(--theme-title);
+}
+
+#blocked-modal-cancel:hover {
+    opacity: 0.92;
+    filter: brightness(0.98);
+}
+
+#blocked-modal-save {
+    border: none;
+    background: var(--theme-primary);
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(26, 115, 232, 0.22);
+}
+
+#blocked-modal-save:hover:not(:disabled) {
+    filter: brightness(1.05);
+}
+
+#blocked-modal-save:disabled {
+    opacity: 0.48;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+:root[data-theme="dark"] #blocked-new-group-panel {
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.35);
+}
+
+:root[data-theme="dark"] #blocked-modal-save {
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+}
+
+:root[data-theme="dark"] #blocked-new-group-backdrop {
+    background: rgba(0, 0, 0, 0.65);
+}
+
+/* Modal «Thêm trang chặn» trên thẻ nhóm — cùng padding / backdrop / footer như «Nhóm chặn mới» */
+body.blocked-add-sites-modal-open,
+body.allow-add-sites-modal-open {
+    overflow: hidden;
+}
+
+.blocked-add-sites-modal.fb-hashtag-modal {
+    z-index: 2147483645;
+    box-sizing: border-box;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.blocked-add-sites-modal.fb-hashtag-modal:not(.hidden) {
+    display: flex !important;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    pointer-events: auto;
+}
+
+.blocked-add-sites-modal .fb-hashtag-modal__backdrop {
+    background: rgba(15, 23, 42, 0.55);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+    pointer-events: auto;
+    cursor: default;
+}
+
+.blocked-add-sites-modal .blocked-add-sites-modal__panel {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 640px;
+    max-height: min(92vh, 880px);
+    margin: 0;
+    flex-shrink: 0;
+    pointer-events: auto;
+    box-sizing: border-box;
+    padding: 1.5rem;
+    border-radius: 1.5rem;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.08), 0 2px 4px -2px rgb(0 0 0 / 0.06);
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+@media (min-width: 640px) {
+    .blocked-add-sites-modal .blocked-add-sites-modal__panel {
+        padding: 1.5rem 1.75rem;
+    }
+}
+
+.blocked-add-sites-modal__footer {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    margin-top: 2rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--theme-border);
+}
+
+.blocked-add-sites-modal__btn-cancel,
+.blocked-add-sites-modal__btn-save {
+    border-radius: 10px;
+    min-height: 2.75rem;
+    padding: 0.5rem 1.25rem;
+    font-family: var(--theme-font-body);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: opacity 0.2s ease, filter 0.2s ease, background-color 0.2s ease;
+}
+
+.blocked-add-sites-modal__btn-cancel {
+    border: 1px solid var(--theme-border);
+    background: var(--theme-soft-surface);
+    color: var(--theme-title);
+}
+
+.blocked-add-sites-modal__btn-cancel:hover {
+    opacity: 0.92;
+    filter: brightness(0.98);
+}
+
+.blocked-add-sites-modal__btn-save {
+    border: none;
+    background: var(--theme-primary);
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(26, 115, 232, 0.22);
+}
+
+.blocked-add-sites-modal__btn-save:hover {
+    filter: brightness(1.05);
+}
+
+:root[data-theme="dark"] .blocked-add-sites-modal .fb-hashtag-modal__backdrop {
+    background: rgba(0, 0, 0, 0.65);
+}
+
+:root[data-theme="dark"] .blocked-add-sites-modal .blocked-add-sites-modal__panel {
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.35);
+}
+
+:root[data-theme="dark"] .blocked-add-sites-modal__btn-save {
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+}
+
+/* Tab Schedule: khối thông báo sau khi lưu (đồng bộ giao diện “panel” dashboard) */
+.schedule-save-banner {
+    box-sizing: border-box;
+    border-left-width: 5px;
+}
+
+.schedule-save-banner[data-kind='success'] {
+    border-color: rgba(45, 212, 165, 0.45);
+    background: rgba(236, 253, 245, 0.96);
+    border-left-color: rgb(5, 150, 105);
+}
+
+.schedule-save-banner[data-kind='success'] .schedule-save-banner__msg {
+    color: rgb(6, 95, 70);
+}
+
+.schedule-save-banner[data-kind='error'] {
+    border-color: rgba(248, 113, 113, 0.45);
+    background: rgba(254, 242, 242, 0.96);
+    border-left-color: rgb(220, 38, 38);
+}
+
+.schedule-save-banner[data-kind='error'] .schedule-save-banner__msg {
+    color: rgb(127, 29, 29);
+}
+
+.schedule-save-banner[data-kind='info'] {
+    border-color: rgba(59, 130, 246, 0.35);
+    background: rgba(239, 246, 255, 0.96);
+    border-left-color: rgb(37, 99, 235);
+}
+
+.schedule-save-banner[data-kind='info'] .schedule-save-banner__msg {
+    color: rgb(30, 64, 175);
+}
+
+.schedule-save-banner[data-kind='info'] .schedule-save-banner__detail {
+    color: rgb(51, 65, 85);
+}
+
+:root[data-theme='dark'] .schedule-save-banner[data-kind='success'] {
+    border-color: rgba(52, 211, 153, 0.32);
+    background: rgba(6, 78, 59, 0.55);
+    border-left-color: rgb(52, 211, 153);
+}
+
+:root[data-theme='dark'] .schedule-save-banner[data-kind='success'] .schedule-save-banner__msg {
+    color: rgb(209, 250, 229);
+}
+
+:root[data-theme='dark'] .schedule-save-banner[data-kind='error'] {
+    border-color: rgba(248, 113, 113, 0.35);
+    background: rgba(69, 10, 10, 0.45);
+    border-left-color: rgb(248, 113, 113);
+}
+
+:root[data-theme='dark'] .schedule-save-banner[data-kind='error'] .schedule-save-banner__msg {
+    color: rgb(254, 226, 226);
+}
+
+:root[data-theme='dark'] .schedule-save-banner[data-kind='info'] {
+    border-color: rgba(96, 165, 250, 0.35);
+    background: rgba(15, 23, 42, 0.72);
+    border-left-color: rgb(96, 165, 250);
+}
+
+:root[data-theme='dark'] .schedule-save-banner[data-kind='info'] .schedule-save-banner__msg {
+    color: rgb(191, 219, 254);
+}
+
+:root[data-theme='dark'] .schedule-save-banner[data-kind='info'] .schedule-save-banner__detail {
+    color: rgb(203, 213, 225);
 }

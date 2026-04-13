@@ -52,6 +52,7 @@
         root.dataset.themePreference = currentThemePreference;
         root.dataset.theme = resolvedTheme;
         root.style.colorScheme = resolvedTheme;
+        root.classList.toggle('dark', resolvedTheme === 'dark');
 
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', () => updateThemedAssets(resolvedTheme), { once: true });

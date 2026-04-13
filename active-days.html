@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Active Days — Settings</title>
+    <link href="dist/styles.css" rel="stylesheet" />
+    <style>
+        /* Màu mockup StayFocusd — không phụ thuộc Tailwind scan file này */
+        .active-days-title-mock {
+            color: #5b719e;
+        }
+        .select-all-btn-mock {
+            background-color: #e0e0e0;
+            color: #000000;
+        }
+        .select-all-btn-mock:hover {
+            background-color: #d0d0d0;
+        }
+        .active-day-checkbox {
+            width: 1.25rem;
+            height: 1.25rem;
+            min-width: 1.25rem;
+            min-height: 1.25rem;
+            accent-color: #6b8cbc;
+        }
+        @media (min-width: 480px) {
+            .active-day-checkbox {
+                width: 1.35rem;
+                height: 1.35rem;
+                min-width: 1.35rem;
+                min-height: 1.35rem;
+            }
+        }
+        .cursor-not-allowed {
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-neutral-100 font-sans antialiased text-neutral-900">
+    <main class="mx-auto max-w-lg px-5 py-10 sm:px-8">
+        <header class="mb-10">
+            <h1 class="active-days-title-mock text-3xl font-bold tracking-tight">Active Days</h1>
+            <p class="mt-3 text-[15px] leading-relaxed text-black">
+                Set the days during which the extension will restrict your browsing activity.
+            </p>
+        </header>
+
+        <section aria-labelledby="active-days-heading">
+            <h2 id="active-days-heading" class="sr-only">Active days selection</h2>
+
+            <ul class="flex flex-col gap-5 sm:gap-6" role="list">
+                <li class="flex items-center gap-4">
+                    <input
+                        type="checkbox"
+                        id="day-1"
+                        data-day-value="1"
+                        class="active-day-checkbox shrink-0 cursor-pointer rounded border-2 border-neutral-500 bg-white"
+                    />
+                    <label for="day-1" class="cursor-pointer select-none text-[16px] font-normal text-black">Monday</label>
+                </li>
+                <li class="flex items-center gap-4">
+                    <input
+                        type="checkbox"
+                        id="day-2"
+                        data-day-value="2"
+                        class="active-day-checkbox shrink-0 cursor-pointer rounded border-2 border-neutral-500 bg-white"
+                    />
+                    <label for="day-2" class="cursor-pointer select-none text-[16px] font-normal text-black">Tuesday</label>
+                </li>
+                <li class="flex items-center gap-4">
+                    <input
+                        type="checkbox"
+                        id="day-3"
+                        data-day-value="3"
+                        class="active-day-checkbox shrink-0 cursor-pointer rounded border-2 border-neutral-500 bg-white"
+                    />
+                    <label for="day-3" class="cursor-pointer select-none text-[16px] font-normal text-black">Wednesday</label>
+                </li>
+                <li class="flex items-center gap-4">
+                    <input
+                        type="checkbox"
+                        id="day-4"
+                        data-day-value="4"
+                        class="active-day-checkbox shrink-0 cursor-pointer rounded border-2 border-neutral-500 bg-white"
+                    />
+                    <label for="day-4" class="cursor-pointer select-none text-[16px] font-normal text-black">Thursday</label>
+                </li>
+                <li class="flex items-center gap-4">
+                    <input
+                        type="checkbox"
+                        id="day-5"
+                        data-day-value="5"
+                        class="active-day-checkbox shrink-0 cursor-pointer rounded border-2 border-neutral-500 bg-white"
+                    />
+                    <label for="day-5" class="cursor-pointer select-none text-[16px] font-normal text-black">Friday</label>
+                </li>
+                <li class="flex items-center gap-4">
+                    <input
+                        type="checkbox"
+                        id="day-6"
+                        data-day-value="6"
+                        class="active-day-checkbox shrink-0 cursor-pointer rounded border-2 border-neutral-500 bg-white"
+                    />
+                    <label for="day-6" class="cursor-pointer select-none text-[16px] font-normal text-black">Saturday</label>
+                </li>
+                <li class="flex items-center gap-4">
+                    <input
+                        type="checkbox"
+                        id="day-0"
+                        data-day-value="0"
+                        class="active-day-checkbox shrink-0 rounded border-2 border-neutral-500 bg-white"
+                    />
+                    <label for="day-0" class="cursor-pointer select-none text-[16px] font-normal text-black">Sunday</label>
+                </li>
+            </ul>
+
+            <button
+                type="button"
+                id="select-all-btn"
+                class="select-all-btn-mock mt-8 w-full rounded-md px-4 py-2.5 text-center text-sm font-bold uppercase tracking-wide sm:mt-10 sm:w-auto sm:px-6"
+            >
+                Select all
+            </button>
+
+            <p class="mt-6 max-w-md text-[13px] leading-relaxed text-black sm:mt-8">
+                You cannot turn the extension off for the current day.
+            </p>
+        </section>
+
+        <footer class="mt-10">
+            <button
+                type="button"
+                id="save-btn"
+                disabled
+                class="select-all-btn-mock w-full rounded-md px-4 py-2.5 text-sm font-bold uppercase tracking-wide disabled:pointer-events-none disabled:opacity-50"
+            >
+                Save changes
+            </button>
+        </footer>
+    </main>
+
+    <script src="active-days.js"></script>
+</body>
+</html>

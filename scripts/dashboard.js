@@ -1,20 +1,33 @@
 'use strict';
 
+function dashboardI18n(key, fallback) {
+    const s = globalThis.ExtensionI18n && typeof globalThis.ExtensionI18n.getMessage === 'function'
+        ? globalThis.ExtensionI18n.getMessage(key)
+        : '';
+    return s || fallback;
+}
+
 const tabs = Array.from(document.querySelectorAll('.dashboard-tab'));
 const panels = Array.from(document.querySelectorAll('.dashboard-panel'));
 const inAppViews = Array.from(document.querySelectorAll('[data-inapp-view]'));
 const inAppTargets = Array.from(document.querySelectorAll('[data-inapp-target]'));
 const inAppBackButtons = Array.from(document.querySelectorAll('[data-inapp-back]'));
-const openingTimerToggle = document.querySelector('input[name="openingTimerEnabled"][data-app="youtube"]');
-const openingTimerToggleShell = openingTimerToggle?.closest('.theme-switch') || null;
-const openingTimerInput = document.getElementById('yt-opening-timer-input');
-const openingTimerUnit = document.getElementById('yt-opening-timer-unit');
 const STORAGE_KEY = 'inAppBlockingSettings';
+
+function getYoutubeOpeningTimerEls() {
+    const toggle = document.querySelector('input[name="openingTimerEnabled"][data-app="youtube"]');
+    return {
+        toggle,
+        input: document.getElementById('yt-opening-timer-input'),
+        unit: document.getElementById('yt-opening-timer-unit'),
+        shell: toggle?.closest('.theme-switch') || null,
+    };
+}
 const SETTINGS_STORAGE_KEY = 'dashboardSettings';
-const PANEL_NAMES = new Set(['block', 'custom', 'inapp', 'settings', 'help']);
+const PANEL_NAMES = new Set(['blocked', 'allow', 'custom', 'inapp', 'schedule', 'settings', 'help']);
 const INAPP_VIEW_NAMES = new Set(['list', 'youtube', 'facebook']);
 const DEFAULT_ROUTE = {
-    panel: 'block',
+    panel: 'blocked',
     view: 'list',
 };
 
@@ -117,6 +130,7 @@ function createDefaultFacebookSettings() {
         'hideNavNotifications',
         'hideNavNews',
         'hideNavEvents',
+        'grayscaleMode',
     ];
     restFalse.forEach((k) => {
         fb[k] = false;
@@ -124,26 +138,87 @@ function createDefaultFacebookSettings() {
     return fb;
 }
 
+function createDefaultYoutubeSettings() {
+    const masters = [
+        'masterYtPlayer',
+        'masterYtWatch',
+        'masterYtShorts',
+        'masterYtThumbnails',
+        'masterYtNav',
+        'masterYtAppearance',
+        'masterYtSearch',
+        'masterYtFilter',
+        'masterYtMisc',
+        'masterYtFuture',
+    ];
+    const yt = {
+        filterVideosKeywords: '',
+        filterChannelsList: '',
+        searchSortBy: '',
+    };
+    masters.forEach((k) => {
+        yt[k] = true;
+    });
+    const restFalse = [
+        'disableAutoplay',
+        'autoSkipVideoAds',
+        'enableTheaterMode',
+        'autoShowChapters',
+        'hideRecommendedVideos',
+        'centerWatchContent',
+        'autoExpandDescription',
+        'hideComments',
+        'disableEndCards',
+        'hideShorts',
+        'redirectShortsToWatch',
+        'hideThumbnails',
+        'blurThumbnails',
+        'blackWhiteMode',
+        'grayscaleMode',
+        'hideHomePage',
+        'hideSubscriptions',
+        'hideExplore',
+        'hideTopBar',
+        'sidebarAutoCollapse',
+        'sidebarAutoExpandPlaylists',
+        'sidebarAutoExpandSubscriptions',
+        'filterVideosEnabled',
+        'filterChannelsEnabled',
+        'contextMenuBlockEnabled',
+        'hideSearchAdsPlanned',
+        'replaceThumbnailPlanned',
+        'shortsSlowScrollPlanned',
+        'hideNavCustomizationPlanned',
+        'openingTimerEnabled',
+    ];
+    restFalse.forEach((k) => {
+        yt[k] = false;
+    });
+    yt.openingTimerValue = 0;
+    yt.openingTimerUnit = 'seconds';
+    return yt;
+}
+
+/** Khóa con theo từng section YouTube (bulk + master gate đồng bộ với undistracted-youtube.js). */
+const YOUTUBE_SECTION_BULK_CHILD_KEYS = {
+    ytPlayer: ['disableAutoplay', 'autoSkipVideoAds', 'enableTheaterMode', 'autoShowChapters'],
+    ytWatch: ['hideRecommendedVideos', 'centerWatchContent', 'autoExpandDescription', 'hideComments', 'disableEndCards'],
+    ytThumbnails: ['hideThumbnails', 'blurThumbnails', 'blackWhiteMode', 'grayscaleMode'],
+    ytNav: ['hideHomePage', 'hideSubscriptions', 'hideExplore', 'hideTopBar'],
+    ytAppearance: ['sidebarAutoCollapse', 'sidebarAutoExpandPlaylists', 'sidebarAutoExpandSubscriptions'],
+    ytSearch: ['hideSearchAdsPlanned'],
+    ytFilter: ['filterVideosEnabled', 'filterChannelsEnabled', 'contextMenuBlockEnabled'],
+    ytMiscTimer: ['openingTimerEnabled'],
+    ytFuture: ['replaceThumbnailPlanned', 'shortsSlowScrollPlanned', 'hideNavCustomizationPlanned'],
+};
+
+function migrateYoutubeSettings(yt) {
+    const out = { ...createDefaultYoutubeSettings(), ...yt };
+    return out;
+}
+
 const DEFAULT_SETTINGS = {
-    youtube: {
-        hideHomePage: false,
-        hideShorts: false,
-        hideComments: false,
-        hideRecommendedVideos: false,
-        hideThumbnails: false,
-        blurThumbnails: false,
-        hideSubscriptions: false,
-        hideExplore: false,
-        hideTopBar: false,
-        disableEndCards: false,
-        blackWhiteMode: false,
-        disableAutoplay: false,
-        enableTheaterMode: false,
-        autoSkipVideoAds: false,
-        openingTimerEnabled: false,
-        openingTimerValue: 0,
-        openingTimerUnit: 'seconds',
-    },
+    youtube: createDefaultYoutubeSettings(),
     facebook: createDefaultFacebookSettings(),
 };
 const DEFAULT_DASHBOARD_SETTINGS = {
@@ -241,9 +316,11 @@ function migrateFacebookRomanSectionMasters(fb, storedFbRaw = {}) {
 
 function mergeSettings(storedSettings = {}) {
     const storedFbRaw = storedSettings.facebook || {};
+    const storedYtRaw = storedSettings.youtube || {};
     const mergedFacebook = { ...DEFAULT_SETTINGS.facebook, ...storedFbRaw };
+    const mergedYoutube = migrateYoutubeSettings(storedYtRaw);
     return {
-        youtube: { ...DEFAULT_SETTINGS.youtube, ...(storedSettings.youtube || {}) },
+        youtube: mergedYoutube,
         facebook: migrateFacebookRomanSectionMasters(mergedFacebook, storedFbRaw),
     };
 }
@@ -519,6 +596,304 @@ function renderFacebookSection(sectionId, masterKey, title, subtitle, children, 
     </div>`;
 }
 
+function renderYouTubeChildRow(sectionId, settingKey, label, hint = '') {
+    const hintHtml = hint
+        ? `<p class="theme-muted mt-0.5 text-[10px] leading-snug">${escapeHtmlFacebook(hint)}</p>`
+        : '';
+    return `
+    <div class="fb-child-row flex items-start gap-4 rounded-xl px-2 py-2.5 sm:gap-5 sm:px-3 sm:py-3">
+        <button type="button" class="theme-switch mt-0.5 shrink-0" data-switch data-platform="youtube" data-setting="${escapeHtmlFacebook(settingKey)}" data-yt-parent="${escapeHtmlFacebook(sectionId)}" aria-pressed="false"><span class="theme-switch-thumb"></span></button>
+        <div class="min-w-0 pt-0.5">
+            <p class="theme-title text-[13px] leading-snug">${escapeHtmlFacebook(label)}</p>
+            ${hintHtml}
+        </div>
+    </div>`;
+}
+
+function renderYouTubeBulkAllRow(sectionId) {
+    const keys = YOUTUBE_SECTION_BULK_CHILD_KEYS[sectionId];
+    if (!keys?.length) {
+        return '';
+    }
+    return `
+    <div class="fb-bulk-row fb-child-row -mx-2 flex items-start gap-4 rounded-t-xl border-b border-[var(--theme-border)] px-2 py-3 sm:-mx-3 sm:gap-5 sm:px-3 sm:py-3.5">
+        <button type="button" class="theme-switch fb-bulk-all-switch mt-0.5 shrink-0" data-yt-bulk-sync="${escapeHtmlFacebook(sectionId)}" aria-pressed="false" aria-label="Toggle all options in this section"><span class="theme-switch-thumb"></span></button>
+        <div class="min-w-0 pt-0.5">
+            <p class="theme-title text-[13px] font-semibold leading-snug">Enable / disable all below</p>
+            <p class="theme-muted mt-0.5 text-[10px] leading-snug">Writes each saved toggle. The outer master only locks the panel.</p>
+        </div>
+    </div>`;
+}
+
+function renderYouTubeSection(sectionId, masterKey, title, subtitle, children, extraBodyHtml = '', bodyClass = '') {
+    const subHtml = subtitle
+        ? `<p class="theme-muted mt-0.5 text-[12px] leading-relaxed">${escapeHtmlFacebook(subtitle)}</p>`
+        : '';
+    const childRows = children.map(([key, label, hint]) => renderYouTubeChildRow(sectionId, key, label, hint)).join('');
+    const bulkRow = renderYouTubeBulkAllRow(sectionId);
+
+    return `
+    <div class="fb-section theme-dashed-panel overflow-hidden rounded-[18px] border-2 shadow-[0_14px_40px_rgba(15,23,42,0.05)]">
+        <div class="fb-section-header flex cursor-pointer items-start justify-between gap-4 border-b border-[var(--theme-border)] bg-[var(--theme-soft-surface)] px-4 py-4 transition-colors hover:bg-black/[0.04] dark:hover:bg-white/[0.06] sm:gap-5 sm:px-6 sm:py-4" data-yt-section-header="${escapeHtmlFacebook(sectionId)}" role="button" tabindex="0" aria-expanded="false" aria-controls="yt-panel-${escapeHtmlFacebook(sectionId)}">
+            <div class="flex min-w-0 flex-1 select-text items-start gap-4 sm:gap-5">
+                <button type="button" class="theme-switch fb-master-switch mt-0.5 shrink-0" data-switch data-platform="youtube" data-setting="${escapeHtmlFacebook(masterKey)}" data-yt-master="${escapeHtmlFacebook(sectionId)}" aria-pressed="true"><span class="theme-switch-thumb"></span></button>
+                <div class="min-w-0">
+                    <p class="theme-title text-[15px] font-semibold leading-snug">${escapeHtmlFacebook(title)}</p>
+                    ${subHtml}
+                </div>
+            </div>
+            <span class="fb-section-toggle ml-1 inline-flex shrink-0 rounded-xl p-2.5 text-[var(--theme-muted)] sm:p-3" data-yt-collapse="${escapeHtmlFacebook(sectionId)}" aria-hidden="true">
+                <svg class="fb-chevron h-5 w-5 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+            </span>
+        </div>
+        <div id="yt-panel-${escapeHtmlFacebook(sectionId)}" class="fb-section-body hidden space-y-3 p-5 sm:space-y-4 sm:p-6 ${bodyClass}" data-yt-panel="${escapeHtmlFacebook(sectionId)}">
+            ${bulkRow}
+            ${childRows}
+            ${extraBodyHtml}
+        </div>
+    </div>`;
+}
+
+function parseYoutubeFilterLines(raw) {
+    if (typeof raw !== 'string' || !raw.trim()) {
+        return [];
+    }
+    const seen = new Set();
+    const out = [];
+    raw.split(/\r?\n/).forEach((line) => {
+        const t = line.trim();
+        if (t && !seen.has(t)) {
+            seen.add(t);
+            out.push(t);
+        }
+    });
+    return out;
+}
+
+function renderYoutubeKeywordChips(lines, canEdit) {
+    if (!Array.isArray(lines) || lines.length === 0) {
+        return '<p class="theme-muted text-[11px]">No blocked phrases yet.</p>';
+    }
+    return lines.map((line) => `
+        <span class="fb-hashtag-chip">
+            <span>${escapeHtmlFacebook(line)}</span>
+            <button type="button" class="fb-hashtag-chip-remove" data-yt-kw-remove="${escapeHtmlFacebook(line)}" ${canEdit ? '' : 'disabled'} aria-label="Remove ${escapeHtmlFacebook(line)}">×</button>
+        </span>
+    `).join('');
+}
+
+function mountYouTubeInAppPanel() {
+    const root = document.getElementById('youtube-inapp-settings-root');
+    if (!root || root.dataset.mounted === 'true') {
+        return;
+    }
+    root.dataset.mounted = 'true';
+
+    const filterVideosExtra = `
+        ${renderYouTubeChildRow('ytFilter', 'filterVideosEnabled', 'Hide videos by title keywords', 'One phrase per line; matches if the title contains the phrase (case-insensitive).')}
+        <div class="mt-2 border-t border-[var(--theme-border)] pt-4" data-yt-kw-block>
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <p class="theme-title text-[12px] font-medium">Blocked title phrases</p>
+                <div class="flex flex-wrap gap-2">
+                    <button type="button" class="fb-hashtag-add-btn" data-yt-kw-open>Add lines</button>
+                    <button type="button" class="fb-list-clear-all-btn" data-yt-kw-clear-all aria-label="Clear all phrases">Clear all</button>
+                </div>
+            </div>
+            <div id="yt-filter-kw-list" class="fb-hashtag-list mt-3" data-yt-kw-list></div>
+            <div class="fb-hashtag-modal hidden" data-yt-kw-modal>
+                <div class="fb-hashtag-modal__backdrop" data-yt-kw-close></div>
+                <div class="fb-hashtag-modal__panel theme-surface theme-border">
+                    <div class="flex items-center justify-between gap-3 border-b border-[var(--theme-border)] px-4 py-3">
+                        <p class="theme-title text-[16px] font-semibold">Add blocked phrases</p>
+                        <button type="button" class="fb-hashtag-modal__close" data-yt-kw-close aria-label="Close">×</button>
+                    </div>
+                    <div class="px-4 py-4">
+                        <textarea id="yt-filter-kw-popup-input" rows="6" class="theme-surface theme-border w-full resize-y rounded-xl border px-3 py-2 text-[13px] outline-none focus:border-[var(--theme-primary)]" placeholder="clickbait&#10;giveaway"></textarea>
+                        <div class="mt-4 flex justify-end gap-2">
+                            <button type="button" class="fb-hashtag-action-btn fb-hashtag-action-btn--ghost" data-yt-kw-close>Cancel</button>
+                            <button type="button" class="fb-hashtag-action-btn" data-yt-kw-save>Save</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        ${renderYouTubeChildRow('ytFilter', 'filterChannelsEnabled', 'Hide channels by id / @handle', 'One entry per line (channel id, @handle, or substring matched in links).')}
+        <div class="mt-2 border-t border-[var(--theme-border)] pt-4" data-yt-ch-block>
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <p class="theme-title text-[12px] font-medium">Blocked channels</p>
+                <div class="flex flex-wrap gap-2">
+                    <button type="button" class="fb-hashtag-add-btn" data-yt-ch-open>Add lines</button>
+                    <button type="button" class="fb-list-clear-all-btn" data-yt-ch-clear-all aria-label="Clear all channels">Clear all</button>
+                </div>
+            </div>
+            <div id="yt-filter-ch-list" class="fb-hashtag-list mt-3" data-yt-ch-list></div>
+            <div class="fb-hashtag-modal hidden" data-yt-ch-modal>
+                <div class="fb-hashtag-modal__backdrop" data-yt-ch-close></div>
+                <div class="fb-hashtag-modal__panel theme-surface theme-border">
+                    <div class="flex items-center justify-between gap-3 border-b border-[var(--theme-border)] px-4 py-3">
+                        <p class="theme-title text-[16px] font-semibold">Add blocked channels</p>
+                        <button type="button" class="fb-hashtag-modal__close" data-yt-ch-close aria-label="Close">×</button>
+                    </div>
+                    <div class="px-4 py-4">
+                        <textarea id="yt-filter-ch-popup-input" rows="6" class="theme-surface theme-border w-full resize-y rounded-xl border px-3 py-2 text-[13px] outline-none focus:border-[var(--theme-primary)]" placeholder="@SomeChannel&#10;UCxxxxxxxx"></textarea>
+                        <div class="mt-4 flex justify-end gap-2">
+                            <button type="button" class="fb-hashtag-action-btn fb-hashtag-action-btn--ghost" data-yt-ch-close>Cancel</button>
+                            <button type="button" class="fb-hashtag-action-btn" data-yt-ch-save>Save</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        ${renderYouTubeChildRow('ytFilter', 'contextMenuBlockEnabled', 'Context menu: block video / channel', 'Adds entries to the ⋮ menu to append the current video or channel to the lists above (when YouTube shows that menu).')}
+    `;
+
+    const searchExtra = `
+        <div class="mt-2 rounded-xl border border-[var(--theme-border)] bg-[var(--theme-soft-surface)]/40 px-3 py-3 sm:px-4">
+            <label class="theme-title mb-2 block text-[12px] font-medium" for="yt-search-sort-select">Default search sort (results page)</label>
+            <select id="yt-search-sort-select" data-yt-search-sort class="theme-select w-full max-w-md !min-h-[40px] text-[13px]">
+                <option value="">Relevance (no change)</option>
+                <option value="uploadDate">Upload date</option>
+                <option value="viewCount">View count</option>
+                <option value="rating">Rating</option>
+            </select>
+            <p class="theme-muted mt-2 text-[10px] leading-snug">Applies once per search session to avoid reload loops.</p>
+        </div>
+    `;
+
+    const sectionsHtml = [
+        renderYouTubeSection(
+            'ytPlayer',
+            'masterYtPlayer',
+            'Video player',
+            'Autoplay, ads, theater mode, chapters.',
+            [
+                ['disableAutoplay', 'Disable autoplay (next video)', ''],
+                ['autoSkipVideoAds', 'Auto skip in-player ads', ''],
+                ['enableTheaterMode', 'Auto theater mode', ''],
+                ['autoShowChapters', 'Show chapters panel in sidebar', 'Opens the chapters engagement panel when hidden.'],
+            ],
+        ),
+        renderYouTubeSection(
+            'ytWatch',
+            'masterYtWatch',
+            'Watch page cleanup',
+            'Related column, description, comments, end screens.',
+            [
+                ['hideRecommendedVideos', 'Hide related / suggested column', ''],
+                ['centerWatchContent', 'Center the player when related is hidden', ''],
+                ['autoExpandDescription', 'Auto-expand video description', ''],
+                ['hideComments', 'Hide comments', ''],
+                ['disableEndCards', 'Disable end cards / endscreen suggestions', ''],
+            ],
+        ),
+        renderYouTubeSection(
+            'ytShorts',
+            'masterYtShorts',
+            'Shorts',
+            'Hide Shorts surfaces and optional normal watch redirect.',
+            [
+                ['hideShorts', 'Hide Shorts in feeds and navigation', ''],
+                ['redirectShortsToWatch', 'Open Shorts URLs as normal watch page', ''],
+            ],
+        ),
+        renderYouTubeSection(
+            'ytThumbnails',
+            'masterYtThumbnails',
+            'Thumbnails',
+            'Reduce visual pull from thumbnails.',
+            [
+                ['hideThumbnails', 'Hide thumbnails', ''],
+                ['blurThumbnails', 'Blur thumbnails', ''],
+                ['blackWhiteMode', 'Grayscale thumbnails / page', 'Also honors legacy “grayscaleMode” in storage.'],
+            ],
+        ),
+        renderYouTubeSection(
+            'ytNav',
+            'masterYtNav',
+            'Feeds & top navigation',
+            'Home, subscriptions, explore, masthead.',
+            [
+                ['hideHomePage', 'Hide home feed', ''],
+                ['hideSubscriptions', 'Hide subscriptions', ''],
+                ['hideExplore', 'Hide explore / trending destinations', ''],
+                ['hideTopBar', 'Hide top bar (search)', ''],
+            ],
+        ),
+        renderYouTubeSection(
+            'ytAppearance',
+            'masterYtAppearance',
+            'Sidebar appearance',
+            'Auto-collapse guide and expand library sections.',
+            [
+                ['sidebarAutoCollapse', 'Auto-collapse left guide', ''],
+                ['sidebarAutoExpandPlaylists', 'Auto-expand Playlists in guide', ''],
+                ['sidebarAutoExpandSubscriptions', 'Auto-expand Subscriptions in guide', ''],
+            ],
+        ),
+        renderYouTubeSection(
+            'ytSearch',
+            'masterYtSearch',
+            'Search & promoted results',
+            'Sort and (planned) shelf cleanup.',
+            [
+                ['hideSearchAdsPlanned', 'Hide promoted / shopping rows (planned)', 'Not wired yet — reserved for future CSS.'],
+            ],
+            searchExtra,
+        ),
+        renderYouTubeSection(
+            'ytFilter',
+            'masterYtFilter',
+            'Content filter',
+            'Keyword and channel hiding plus quick block from menus.',
+            [],
+            filterVideosExtra,
+        ),
+        renderYouTubeSection(
+            'ytFuture',
+            'masterYtFuture',
+            'Coming later',
+            'Placeholder toggles for features not ported yet.',
+            [
+                ['replaceThumbnailPlanned', 'Replace custom thumbnails (planned)', ''],
+                ['shortsSlowScrollPlanned', 'Slow / limited Shorts scroll (planned)', ''],
+                ['hideNavCustomizationPlanned', 'Home menu / feed tweaks (planned)', ''],
+            ],
+        ),
+    ].join('');
+
+    const openingTimerCard = `
+    <div class="mt-5 rounded-xl border border-[var(--theme-border)] bg-[var(--theme-soft-surface)]/50 px-3 py-4 sm:px-4">
+        <div class="mb-3 flex items-start gap-3 sm:gap-4">
+            <button type="button" class="theme-switch fb-master-switch mt-0.5 shrink-0" data-switch data-platform="youtube" data-setting="masterYtMisc" data-yt-master="ytMiscTimer" aria-pressed="true"><span class="theme-switch-thumb"></span></button>
+            <div class="min-w-0 pt-0.5">
+                <p class="theme-title text-[15px] font-semibold leading-snug">Opening delay (YouTube tab)</p>
+                <p class="theme-muted mt-0.5 text-[11px] leading-snug">Shown before youtube.com loads when enabled.</p>
+            </div>
+        </div>
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+            <div class="flex items-start gap-3 sm:gap-4">
+                <label class="theme-switch mt-0.5 shrink-0 cursor-pointer">
+                    <input type="checkbox" name="openingTimerEnabled" data-app="youtube" data-yt-parent="ytMiscTimer" class="sr-only">
+                    <span class="theme-switch-thumb"></span>
+                </label>
+                <div class="min-w-0 pt-0.5">
+                    <p class="theme-title text-[13px] leading-snug">Enable opening delay</p>
+                    <p class="theme-muted mt-0.5 text-[10px] leading-snug">Delay before the site loads (popup timer).</p>
+                </div>
+            </div>
+            <div class="flex shrink-0 items-center gap-2 sm:self-center" data-yt-opening-timer-controls data-yt-parent="ytMiscTimer">
+                <input id="yt-opening-timer-input" type="number" min="0" value="0" disabled class="theme-surface theme-border h-10 w-20 rounded-xl border px-3 text-[13px] outline-none disabled:cursor-not-allowed disabled:opacity-50">
+                <select id="yt-opening-timer-unit" disabled class="theme-select h-10 !w-[140px] !min-h-0 !px-3 !py-2 text-[13px]">
+                    <option value="seconds">Seconds</option>
+                    <option value="minutes">Minutes</option>
+                </select>
+            </div>
+        </div>
+    </div>`;
+
+    root.innerHTML = `<div class="space-y-5 sm:space-y-6">${sectionsHtml}${openingTimerCard}</div>`;
+}
+
 function mountFacebookInAppPanel() {
     const root = document.getElementById('facebook-inapp-settings-root');
     if (!root || root.dataset.mounted === 'true') {
@@ -758,7 +1133,18 @@ họp lớp"></textarea>
         ),
     ].join('');
 
-    root.innerHTML = `<div class="mt-6 space-y-5 sm:space-y-6">${sectionsHtml}</div>`;
+    const grayscaleStandalone = `
+    <div class="theme-dashed-panel overflow-hidden rounded-[18px] border-2 border-[var(--theme-border)] bg-[var(--theme-soft-surface)] px-4 py-4 sm:px-6 sm:py-5">
+        <div class="flex items-start gap-4 sm:gap-5">
+            <button type="button" class="theme-switch mt-0.5 shrink-0" data-switch data-platform="facebook" data-setting="grayscaleMode" aria-pressed="false"><span class="theme-switch-thumb"></span></button>
+            <div class="min-w-0 pt-0.5">
+                <p class="theme-title text-[15px] font-semibold leading-snug">Chế độ màu xám</p>
+                <p class="theme-muted mt-1 text-[11px] leading-relaxed">Áp dụng bộ lọc grayscale cho toàn trang Facebook (không phụ thuộc các mục chặn bảng tin bên dưới).</p>
+            </div>
+        </div>
+    </div>`;
+
+    root.innerHTML = `<div class="mt-6 space-y-5 sm:space-y-6">${grayscaleStandalone}${sectionsHtml}</div>`;
 }
 
 /** Master toggles only enable/disable child controls in the UI; child on/off values in storage are never changed here. */
@@ -917,6 +1303,321 @@ function refreshFacebookBulkSyncVisuals() {
     });
 }
 
+function refreshYouTubeSectionUi() {
+    const yt = currentSettings?.youtube || {};
+    const root = document.getElementById('youtube-inapp-settings-root');
+    if (!root) {
+        return;
+    }
+
+    document.querySelectorAll('[data-yt-master]').forEach((masterBtn) => {
+        const sectionUi = masterBtn.dataset.ytMaster;
+        const masterKey = masterBtn.dataset.setting;
+        const sectionEnabled = yt[masterKey] !== false;
+
+        root.querySelectorAll(`[data-yt-parent="${sectionUi}"]`).forEach((childEl) => {
+            if (childEl instanceof HTMLButtonElement && childEl.matches('[data-switch]')) {
+                childEl.disabled = !sectionEnabled;
+                childEl.setAttribute('aria-disabled', String(!sectionEnabled));
+            }
+            if (childEl instanceof HTMLInputElement && childEl.type === 'checkbox') {
+                childEl.disabled = !sectionEnabled;
+            }
+            const row = childEl.closest('.fb-child-row');
+            if (row) {
+                row.classList.toggle('fb-child-row--locked', !sectionEnabled);
+            }
+        });
+
+        const panel = root.querySelector(`[data-yt-panel="${sectionUi}"]`);
+        if (panel) {
+            const bulkBtn = panel.querySelector(`[data-yt-bulk-sync="${sectionUi}"]`);
+            if (bulkBtn) {
+                bulkBtn.disabled = !sectionEnabled;
+                bulkBtn.setAttribute('aria-disabled', String(!sectionEnabled));
+                const bulkRow = bulkBtn.closest('.fb-bulk-row');
+                if (bulkRow) {
+                    bulkRow.classList.toggle('fb-child-row--locked', !sectionEnabled);
+                }
+            }
+        }
+
+        if (sectionUi === 'ytFilter' && panel instanceof HTMLElement) {
+            const kwBlock = panel.querySelector('[data-yt-kw-block]');
+            const chBlock = panel.querySelector('[data-yt-ch-block]');
+            const kwOpen = panel.querySelector('[data-yt-kw-open]');
+            const kwClear = panel.querySelector('[data-yt-kw-clear-all]');
+            const chOpen = panel.querySelector('[data-yt-ch-open]');
+            const chClear = panel.querySelector('[data-yt-ch-clear-all]');
+            const kwLines = parseYoutubeFilterLines(yt.filterVideosKeywords || '');
+            const chLines = parseYoutubeFilterLines(yt.filterChannelsList || '');
+            const kwOn = sectionEnabled && Boolean(yt.filterVideosEnabled);
+            const chOn = sectionEnabled && Boolean(yt.filterChannelsEnabled);
+            [kwOpen, kwClear].forEach((el) => {
+                if (el instanceof HTMLElement) {
+                    el.disabled = !kwOn || (el === kwClear && kwLines.length === 0);
+                }
+            });
+            [chOpen, chClear].forEach((el) => {
+                if (el instanceof HTMLElement) {
+                    el.disabled = !chOn || (el === chClear && chLines.length === 0);
+                }
+            });
+            panel.querySelectorAll('[data-yt-kw-remove]').forEach((btn) => {
+                btn.disabled = !kwOn;
+            });
+            panel.querySelectorAll('[data-yt-ch-remove]').forEach((btn) => {
+                btn.disabled = !chOn;
+            });
+            [kwBlock, chBlock].forEach((block) => {
+                if (!block) {
+                    return;
+                }
+                if (!kwOn && block === kwBlock) {
+                    block.querySelector('[data-yt-kw-modal]')?.classList.add('hidden');
+                }
+                if (!chOn && block === chBlock) {
+                    block.querySelector('[data-yt-ch-modal]')?.classList.add('hidden');
+                }
+            });
+        }
+
+        if (sectionUi === 'ytMiscTimer') {
+            const { toggle, input, unit, shell } = getYoutubeOpeningTimerEls();
+            const timerOn = sectionEnabled && Boolean(yt.openingTimerEnabled);
+            if (input) {
+                input.disabled = !timerOn;
+            }
+            if (unit) {
+                unit.disabled = !timerOn;
+            }
+            if (toggle) {
+                toggle.disabled = !sectionEnabled;
+            }
+            if (shell) {
+                shell.classList.toggle('opacity-50', !sectionEnabled);
+                shell.classList.toggle('pointer-events-none', !sectionEnabled);
+            }
+        }
+
+        if (sectionUi === 'ytSearch') {
+            const sortEl = document.getElementById('yt-search-sort-select');
+            if (sortEl instanceof HTMLSelectElement) {
+                sortEl.disabled = !sectionEnabled;
+            }
+        }
+    });
+}
+
+function refreshYouTubeBulkSyncVisuals() {
+    const yt = currentSettings?.youtube || {};
+    document.querySelectorAll('[data-yt-bulk-sync]').forEach((btn) => {
+        const sectionId = btn.dataset.ytBulkSync;
+        const keys = YOUTUBE_SECTION_BULK_CHILD_KEYS[sectionId];
+        if (!keys?.length) {
+            return;
+        }
+        const allOn = keys.every((k) => Boolean(yt[k]));
+        setSwitchVisualState(btn, allOn);
+    });
+}
+
+function bindYouTubeBulkSyncControls() {
+    document.querySelectorAll('[data-yt-bulk-sync]').forEach((btn) => {
+        if (btn.dataset.boundYtBulk === 'true') {
+            return;
+        }
+        btn.dataset.boundYtBulk = 'true';
+        btn.addEventListener('click', () => {
+            if (btn.disabled) {
+                return;
+            }
+            const sectionId = btn.dataset.ytBulkSync;
+            const keys = YOUTUBE_SECTION_BULK_CHILD_KEYS[sectionId];
+            if (!keys?.length) {
+                return;
+            }
+            try {
+                chrome.storage.sync.get([STORAGE_KEY], (data) => {
+                    if (chrome.runtime.lastError) {
+                        console.error('[DASHBOARD:YT_BULK_GET]', chrome.runtime.lastError);
+                        return;
+                    }
+                    const settings = mergeSettings(data[STORAGE_KEY]);
+                    const y = settings.youtube;
+                    const allOn = keys.every((k) => Boolean(y[k]));
+                    const next = !allOn;
+                    keys.forEach((k) => {
+                        y[k] = next;
+                    });
+                    saveSettings(settings);
+                    applyStoredSettings(currentSettings);
+                    notifyTabs('youtube');
+                });
+            } catch (error) {
+                console.error('[DASHBOARD:YT_BULK]', error);
+            }
+        });
+    });
+}
+
+function toggleYouTubeSectionPanel(sectionId) {
+    if (!sectionId) {
+        return;
+    }
+    const root = document.getElementById('youtube-inapp-settings-root');
+    const header = root?.querySelector(`[data-yt-section-header="${sectionId}"]`);
+    const panel = root?.querySelector(`[data-yt-panel="${sectionId}"]`);
+    if (!(panel instanceof HTMLElement)) {
+        return;
+    }
+    const expanded = header?.getAttribute('aria-expanded') === 'true';
+    const nextExpanded = !expanded;
+    if (header) {
+        header.setAttribute('aria-expanded', String(nextExpanded));
+    }
+    panel.classList.toggle('hidden', !nextExpanded);
+}
+
+function bindYouTubeCollapseControls() {
+    const root = document.getElementById('youtube-inapp-settings-root');
+    if (!root || root.dataset.ytCollapseBound === 'true') {
+        return;
+    }
+    root.dataset.ytCollapseBound = 'true';
+    root.addEventListener('click', (event) => {
+        const header = event.target instanceof Element
+            ? event.target.closest('[data-yt-section-header]')
+            : null;
+        if (!header || !root.contains(header)) {
+            return;
+        }
+        if (event.target instanceof Element && event.target.closest('button[data-switch][data-yt-master]')) {
+            return;
+        }
+        const sectionId = header.getAttribute('data-yt-section-header');
+        toggleYouTubeSectionPanel(sectionId);
+    });
+    root.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') {
+            return;
+        }
+        const t = event.target;
+        if (!(t instanceof Element)) {
+            return;
+        }
+        const header = t.closest('[data-yt-section-header]');
+        if (!header || t !== header || !root.contains(header)) {
+            return;
+        }
+        event.preventDefault();
+        const sectionId = header.getAttribute('data-yt-section-header');
+        toggleYouTubeSectionPanel(sectionId);
+    });
+}
+
+function bindYoutubeFilterAndSearchUi() {
+    const root = document.getElementById('youtube-inapp-settings-root');
+    if (!root || root.dataset.ytFilterBound === 'true') {
+        return;
+    }
+    root.dataset.ytFilterBound = 'true';
+
+    const closeKwModal = () => root.querySelector('[data-yt-kw-modal]')?.classList.add('hidden');
+    const closeChModal = () => root.querySelector('[data-yt-ch-modal]')?.classList.add('hidden');
+
+    root.addEventListener('click', (e) => {
+        const t = e.target;
+        if (!(t instanceof Element)) {
+            return;
+        }
+        if (t.closest('[data-yt-kw-open]')) {
+            root.querySelector('[data-yt-kw-modal]')?.classList.remove('hidden');
+        }
+        if (t.closest('[data-yt-kw-close]')) {
+            closeKwModal();
+        }
+        if (t.closest('[data-yt-ch-open]')) {
+            root.querySelector('[data-yt-ch-modal]')?.classList.remove('hidden');
+        }
+        if (t.closest('[data-yt-ch-close]')) {
+            closeChModal();
+        }
+        if (t.closest('[data-yt-kw-save]')) {
+            const ta = root.querySelector('#yt-filter-kw-popup-input');
+            const raw = ta instanceof HTMLTextAreaElement ? ta.value : '';
+            const lines = parseYoutubeFilterLines(raw);
+            currentSettings.youtube.filterVideosKeywords = lines.join('\n');
+            saveSettings(currentSettings);
+            closeKwModal();
+            applyStoredSettings(currentSettings);
+            notifyTabs('youtube');
+        }
+        if (t.closest('[data-yt-ch-save]')) {
+            const ta = root.querySelector('#yt-filter-ch-popup-input');
+            const raw = ta instanceof HTMLTextAreaElement ? ta.value : '';
+            const lines = parseYoutubeFilterLines(raw);
+            currentSettings.youtube.filterChannelsList = lines.join('\n');
+            saveSettings(currentSettings);
+            closeChModal();
+            applyStoredSettings(currentSettings);
+            notifyTabs('youtube');
+        }
+        if (t.closest('[data-yt-kw-clear-all]')) {
+            void confirmDashboardClearList('Clear phrases', 'Remove all blocked title phrases?', { yesLabel: 'Delete all', noLabel: 'Cancel' }).then((ok) => {
+                if (!ok) {
+                    return;
+                }
+                currentSettings.youtube.filterVideosKeywords = '';
+                saveSettings(currentSettings);
+                applyStoredSettings(currentSettings);
+                notifyTabs('youtube');
+            });
+        }
+        if (t.closest('[data-yt-ch-clear-all]')) {
+            void confirmDashboardClearList('Clear channels', 'Remove all blocked channel entries?', { yesLabel: 'Delete all', noLabel: 'Cancel' }).then((ok) => {
+                if (!ok) {
+                    return;
+                }
+                currentSettings.youtube.filterChannelsList = '';
+                saveSettings(currentSettings);
+                applyStoredSettings(currentSettings);
+                notifyTabs('youtube');
+            });
+        }
+        const kwRm = t.closest('[data-yt-kw-remove]');
+        if (kwRm instanceof HTMLButtonElement && kwRm.dataset.ytKwRemove) {
+            const rem = kwRm.dataset.ytKwRemove;
+            const lines = parseYoutubeFilterLines(currentSettings.youtube.filterVideosKeywords || '')
+                .filter((x) => x !== rem);
+            currentSettings.youtube.filterVideosKeywords = lines.join('\n');
+            saveSettings(currentSettings);
+            applyStoredSettings(currentSettings);
+            notifyTabs('youtube');
+        }
+        const chRm = t.closest('[data-yt-ch-remove]');
+        if (chRm instanceof HTMLButtonElement && chRm.dataset.ytChRemove) {
+            const rem = chRm.dataset.ytChRemove;
+            const lines = parseYoutubeFilterLines(currentSettings.youtube.filterChannelsList || '')
+                .filter((x) => x !== rem);
+            currentSettings.youtube.filterChannelsList = lines.join('\n');
+            saveSettings(currentSettings);
+            applyStoredSettings(currentSettings);
+            notifyTabs('youtube');
+        }
+    });
+
+    const sortEl = document.getElementById('yt-search-sort-select');
+    if (sortEl instanceof HTMLSelectElement && sortEl.dataset.boundSort !== 'true') {
+        sortEl.dataset.boundSort = 'true';
+        sortEl.addEventListener('change', () => {
+            currentSettings.youtube.searchSortBy = sortEl.value || '';
+            saveSettings(currentSettings);
+            notifyTabs('youtube');
+        });
+    }
+}
+
 function bindFacebookBulkSyncControls() {
     document.querySelectorAll('[data-fb-bulk-sync]').forEach((btn) => {
         if (btn.dataset.boundBulk === 'true') {
@@ -1010,8 +1711,13 @@ function bindFacebookCollapseControls() {
     });
 }
 
-/** Popup xác nhận (HỦY / XÓA HẾT) cho nút «Xóa hết» — tiêu đề + nội dung như mẫu Clear All. */
-function confirmDashboardClearList(title, message) {
+/**
+ * Popup xác nhận (mặc định HỦY / XÓA HẾT) — dùng cho «Xóa hết» và các thao tác xóa khác.
+ * @param {string} title
+ * @param {string} message
+ * @param {{ yesLabel?: string, noLabel?: string }} [options]
+ */
+function confirmDashboardClearList(title, message, options) {
     return new Promise((resolve) => {
         const modal = document.getElementById('dashboard-confirm-modal');
         const titleEl = document.getElementById('dashboard-confirm-title');
@@ -1023,6 +1729,12 @@ function confirmDashboardClearList(title, message) {
             resolve(window.confirm(`${title}\n\n${message}`));
             return;
         }
+
+        const yesLabel =
+            options && typeof options.yesLabel === 'string' ? options.yesLabel : dashboardI18n('dash_confirm_yes_clear', 'Delete all');
+        const noLabel = options && typeof options.noLabel === 'string' ? options.noLabel : dashboardI18n('dash_confirm_no', 'Cancel');
+        yesBtn.textContent = yesLabel;
+        noBtn.textContent = noLabel;
 
         titleEl.textContent = title;
         bodyEl.textContent = message;
@@ -1056,6 +1768,68 @@ function confirmDashboardClearList(title, message) {
         backdrop.addEventListener('click', onNo);
         document.addEventListener('keydown', onKey);
         noBtn.focus();
+    });
+}
+
+/**
+ * Modal chỉ thông báo (một nút ĐÓng) — dùng sau khi thêm block có dòng trùng / không hợp lệ.
+ * @param {string} title
+ * @param {string} message
+ * @returns {Promise<void>}
+ */
+function alertDashboardInfo(title, message) {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('dashboard-confirm-modal');
+        const titleEl = document.getElementById('dashboard-confirm-title');
+        const bodyEl = document.getElementById('dashboard-confirm-body');
+        const yesBtn = document.getElementById('dashboard-confirm-yes');
+        const noBtn = document.getElementById('dashboard-confirm-no');
+        const backdrop = modal?.querySelector('[data-dashboard-confirm-dismiss]');
+        if (!modal || !titleEl || !bodyEl || !yesBtn || !noBtn || !backdrop) {
+            window.alert(`${title}\n\n${message}`);
+            resolve();
+            return;
+        }
+
+        const prevNoDisplay = noBtn.style.display;
+        noBtn.style.display = 'none';
+        yesBtn.textContent = dashboardI18n('common_close', 'Close');
+
+        titleEl.textContent = title;
+        bodyEl.textContent = message;
+        modal.classList.remove('hidden');
+        modal.setAttribute('aria-hidden', 'false');
+
+        let settled = false;
+        const finish = () => {
+            if (settled) {
+                return;
+            }
+            settled = true;
+            noBtn.style.display = prevNoDisplay || '';
+            yesBtn.textContent = dashboardI18n('dash_confirm_yes_clear', 'Delete all');
+            noBtn.textContent = dashboardI18n('dash_confirm_no', 'Cancel');
+            if (globalThis.ExtensionI18n?.apply) {
+                globalThis.ExtensionI18n.apply(modal);
+            }
+            modal.classList.add('hidden');
+            modal.setAttribute('aria-hidden', 'true');
+            yesBtn.removeEventListener('click', onOk);
+            backdrop.removeEventListener('click', onOk);
+            document.removeEventListener('keydown', onKey);
+            resolve();
+        };
+        const onOk = () => finish();
+        const onKey = (event) => {
+            if (event.key === 'Escape') {
+                finish();
+            }
+        };
+
+        yesBtn.addEventListener('click', onOk);
+        backdrop.addEventListener('click', onOk);
+        document.addEventListener('keydown', onKey);
+        yesBtn.focus();
     });
 }
 
@@ -1382,7 +2156,9 @@ function updateGlobalActiveToggleVisual(isActive) {
     }
 
     if (dashboardGlobalActiveToggleLabel) {
-        dashboardGlobalActiveToggleLabel.textContent = isActive ? 'Active' : 'Off';
+        dashboardGlobalActiveToggleLabel.textContent = isActive
+            ? dashboardI18n('dash_toggle_active', 'Active')
+            : dashboardI18n('dash_toggle_off', 'Off');
     }
 }
 
@@ -1510,8 +2286,30 @@ function applyStoredSettings(settings) {
     }
 
     syncOpeningTimerUI(currentSettings);
+
+    const ytKwList = document.getElementById('yt-filter-kw-list');
+    if (ytKwList) {
+        const lines = parseYoutubeFilterLines(currentSettings?.youtube?.filterVideosKeywords || '');
+        const canEdit = Boolean(currentSettings?.youtube?.masterYtFilter !== false)
+            && Boolean(currentSettings?.youtube?.filterVideosEnabled);
+        ytKwList.innerHTML = renderYoutubeKeywordChips(lines, canEdit);
+    }
+    const ytChList = document.getElementById('yt-filter-ch-list');
+    if (ytChList) {
+        const lines = parseYoutubeFilterLines(currentSettings?.youtube?.filterChannelsList || '');
+        const canEdit = Boolean(currentSettings?.youtube?.masterYtFilter !== false)
+            && Boolean(currentSettings?.youtube?.filterChannelsEnabled);
+        ytChList.innerHTML = renderYoutubeKeywordChips(lines, canEdit);
+    }
+    const ytSort = document.getElementById('yt-search-sort-select');
+    if (ytSort instanceof HTMLSelectElement) {
+        ytSort.value = currentSettings?.youtube?.searchSortBy || '';
+    }
+
     refreshFacebookSectionUi();
     refreshFacebookBulkSyncVisuals();
+    refreshYouTubeSectionUi();
+    refreshYouTubeBulkSyncVisuals();
 }
 
 function saveSettings(settings = currentSettings) {
@@ -1668,6 +2466,19 @@ async function saveDashboardSettings(settings = currentDashboardSettings) {
     await removeLocalStorageData([SETTINGS_STORAGE_KEY]);
 }
 
+async function syncExtensionI18nUi() {
+    if (!globalThis.ExtensionI18n?.reload || !globalThis.ExtensionI18n?.apply) {
+        return;
+    }
+
+    try {
+        await globalThis.ExtensionI18n.reload();
+        globalThis.ExtensionI18n.apply(document);
+    } catch (error) {
+        console.error('[DASHBOARD:I18N]', error);
+    }
+}
+
 async function loadDashboardSettings() {
     try {
         const [localData, syncData] = await Promise.all([
@@ -1682,6 +2493,7 @@ async function loadDashboardSettings() {
         currentDashboardSettings = mergeDashboardSettings(nextSettings);
         renderDashboardSettings(currentDashboardSettings);
         await refreshHideSwitchLockState();
+        await syncExtensionI18nUi();
     } catch (error) {
         console.error('[DASHBOARD:LOAD_GENERAL_SETTINGS]', error);
     }
@@ -1763,15 +2575,17 @@ function renderNotificationList(notifications) {
         unitSelect.dataset.notificationRow = String(index);
         unitSelect.dataset.role = 'unit';
         unitSelect.className = 'theme-notification-select';
+        const secLabel = dashboardI18n('settings_notif_seconds', 'Seconds');
+        const minLabel = dashboardI18n('settings_notif_minutes', 'Minutes');
         unitSelect.innerHTML = `
-            <option value="seconds">second(s)</option>
-            <option value="minutes">minute(s)</option>
+            <option value="seconds">${secLabel}</option>
+            <option value="minutes">${minLabel}</option>
         `;
         unitSelect.value = row.unit;
 
         const suffix = document.createElement('span');
         suffix.className = 'theme-notification-suffix';
-        suffix.textContent = 'remaining';
+        suffix.textContent = dashboardI18n('settings_notif_remaining', 'remaining');
 
         item.appendChild(valueInput);
         item.appendChild(unitSelect);
@@ -1846,11 +2660,13 @@ async function updateDashboardSetting(key, value) {
 
     try {
         await saveDashboardSettings(nextSettings);
+        await syncExtensionI18nUi();
     } catch (error) {
         console.error('[DASHBOARD:SAVE_GENERAL_SETTINGS]', error);
         currentDashboardSettings = previousSettings;
         renderDashboardSettings(currentDashboardSettings);
         await refreshHideSwitchLockState();
+        await syncExtensionI18nUi();
     }
 }
 
@@ -1936,7 +2752,7 @@ function bindDashboardSettingsEvents() {
     if (settingsOptOutData) {
         settingsOptOutData.addEventListener('change', async (event) => {
             const nextValue = Boolean(event.target.checked);
-            const confirmed = window.confirm('Continue with updating the data privacy preference?');
+            const confirmed = window.confirm('Xác nhận cập nhật tuỳ chọn quyền riêng tư dữ liệu?');
 
             if (!confirmed) {
                 event.target.checked = currentDashboardSettings.optOutDataCollection;
@@ -1966,42 +2782,53 @@ function loadSettings() {
 }
 
 function syncOpeningTimerUI(settings = currentSettings) {
-    if (!openingTimerToggle || !openingTimerInput || !openingTimerUnit || !openingTimerToggleShell) {
+    const { toggle, input, unit, shell } = getYoutubeOpeningTimerEls();
+    if (!toggle || !input || !unit || !shell) {
         return;
     }
 
     const youtubeSettings = settings.youtube || DEFAULT_SETTINGS.youtube;
-    const isEnabled = Boolean(youtubeSettings.openingTimerEnabled);
+    const masterOn = youtubeSettings.masterYtMisc !== false;
+    const isEnabled = masterOn && Boolean(youtubeSettings.openingTimerEnabled);
 
-    openingTimerToggle.checked = isEnabled;
-    openingTimerInput.disabled = !isEnabled;
-    openingTimerUnit.disabled = !isEnabled;
-    openingTimerInput.value = String(Math.max(0, Number(youtubeSettings.openingTimerValue) || 0));
-    openingTimerUnit.value = youtubeSettings.openingTimerUnit === 'minutes' ? 'minutes' : 'seconds';
-    openingTimerToggleShell.classList.toggle('is-on', isEnabled);
+    toggle.checked = Boolean(youtubeSettings.openingTimerEnabled);
+    input.disabled = !isEnabled;
+    unit.disabled = !isEnabled;
+    input.value = String(Math.max(0, Number(youtubeSettings.openingTimerValue) || 0));
+    unit.value = youtubeSettings.openingTimerUnit === 'minutes' ? 'minutes' : 'seconds';
+    shell.classList.toggle('is-on', Boolean(youtubeSettings.openingTimerEnabled));
 }
 
 function initOpeningTimerUI() {
-    if (!openingTimerToggle || !openingTimerInput || !openingTimerUnit || !openingTimerToggleShell) {
+    const root = document.getElementById('youtube-inapp-settings-root');
+    if (!root || root.dataset.openingTimerUiInit === 'true') {
         return;
     }
+    const { toggle, input, unit, shell } = getYoutubeOpeningTimerEls();
+    if (!toggle || !input || !unit || !shell) {
+        return;
+    }
+    root.dataset.openingTimerUiInit = 'true';
 
     const applyToggleState = (isActive) => {
-        openingTimerToggle.checked = isActive;
-        openingTimerInput.disabled = !isActive;
-        openingTimerUnit.disabled = !isActive;
-        openingTimerToggleShell.classList.toggle('is-on', isActive);
+        toggle.checked = isActive;
+        const masterOn = currentSettings.youtube.masterYtMisc !== false;
+        const effective = masterOn && isActive;
+        input.disabled = !effective;
+        unit.disabled = !effective;
+        shell.classList.toggle('is-on', isActive);
     };
 
-    openingTimerToggle.addEventListener('change', () => {
-        const isActive = openingTimerToggle.checked;
+    toggle.addEventListener('change', () => {
+        const isActive = toggle.checked;
         applyToggleState(isActive);
         currentSettings.youtube.openingTimerEnabled = isActive;
         saveSettings(currentSettings);
+        refreshYouTubeSectionUi();
         notifyTabs('youtube');
     });
 
-    openingTimerInput.addEventListener('input', (e) => {
+    input.addEventListener('input', (e) => {
         if (Number(e.target.value) < 0) {
             e.target.value = '0';
         }
@@ -2010,12 +2837,12 @@ function initOpeningTimerUI() {
         saveSettings(currentSettings);
     });
 
-    openingTimerUnit.addEventListener('change', () => {
-        currentSettings.youtube.openingTimerUnit = openingTimerUnit.value === 'minutes' ? 'minutes' : 'seconds';
+    unit.addEventListener('change', () => {
+        currentSettings.youtube.openingTimerUnit = unit.value === 'minutes' ? 'minutes' : 'seconds';
         saveSettings(currentSettings);
     });
 
-    applyToggleState(openingTimerToggle.checked);
+    applyToggleState(toggle.checked);
 }
 
 function activateTabUI(tabName) {
@@ -2044,7 +2871,10 @@ function activateInAppView(viewName) {
 function parseHashRoute(hashValue = location.hash) {
     const cleanedHash = hashValue.replace(/^#\/?/, '');
     const segments = cleanedHash.split('/').filter(Boolean);
-    const panel = segments[0] || DEFAULT_ROUTE.panel;
+    let panel = segments[0] || DEFAULT_ROUTE.panel;
+    if (panel === 'block') {
+        panel = 'blocked';
+    }
 
     if (!PANEL_NAMES.has(panel)) {
         return { ...DEFAULT_ROUTE };
@@ -2145,6 +2975,10 @@ function bindInAppSwitch(switchButton) {
                     refreshFacebookSectionUi();
                     refreshFacebookBulkSyncVisuals();
                 }
+                if (platform === 'youtube') {
+                    refreshYouTubeSectionUi();
+                    refreshYouTubeBulkSyncVisuals();
+                }
             });
         } catch (error) {
             console.error('[DASHBOARD:TOGGLE_SWITCH]', error);
@@ -2152,7 +2986,11 @@ function bindInAppSwitch(switchButton) {
     });
 }
 
+mountYouTubeInAppPanel();
 mountFacebookInAppPanel();
+bindYouTubeCollapseControls();
+bindYouTubeBulkSyncControls();
+bindYoutubeFilterAndSearchUi();
 bindFacebookCollapseControls();
 bindFacebookBulkSyncControls();
 bindFacebookHashtagFilter();

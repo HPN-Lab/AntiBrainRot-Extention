@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blocked Sites — Extension Settings</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="blocked-sites.css">
+</head>
+<body>
+    <div class="bs-shell">
+        <header class="bs-header">
+            <h1 class="bs-title">Blocked Sites</h1>
+            <p class="bs-subtitle">Quản lý nhóm chặn và thời gian sử dụng mỗi ngày.</p>
+        </header>
+
+        <label class="bs-master">
+            <input type="checkbox" id="bs-master-checkbox" class="bs-checkbox">
+            <span class="bs-master-text">Block all websites except the ones in Allowed Sites list.</span>
+        </label>
+
+        <div class="bs-groups-row">
+            <h2 class="bs-groups-heading">Groups</h2>
+            <button type="button" id="bs-add-group" class="bs-btn bs-btn-primary">Add group</button>
+        </div>
+
+        <!-- Khung danh sách nhóm: để trống tạm thời, sau này render groups từ dữ liệu -->
+        <div id="bs-group-list" class="bs-group-list" aria-live="polite"></div>
+    </div>
+
+    <!-- Xác nhận khi RequireChallenge (giữ cho luồng lưu sau này) -->
+    <div id="bs-challenge-overlay" class="bs-modal-overlay" hidden aria-hidden="true">
+        <div class="bs-modal bs-modal--compact" role="dialog" aria-modal="true" aria-labelledby="bs-challenge-title">
+            <h3 id="bs-challenge-title" class="bs-modal-title">Xác nhận thay đổi</h3>
+            <p class="bs-modal-body">Đây là bước giả lập khi <code>RequireChallenge</code> bật. Xác nhận để lưu.</p>
+            <div class="bs-modal-actions">
+                <button type="button" id="bs-challenge-cancel" class="bs-btn bs-btn-ghost">Hủy</button>
+                <button type="button" id="bs-challenge-ok" class="bs-btn bs-btn-primary">Xác nhận</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: New blocked group (theo layout ảnh tham chiếu) -->
+    <div id="bs-new-group-overlay" class="bs-modal-overlay" hidden aria-hidden="true">
+        <div class="bs-modal bs-new-group-modal" role="dialog" aria-modal="true" aria-labelledby="bs-new-group-title">
+            <h2 id="bs-new-group-title" class="bs-new-group-heading">New blocked group</h2>
+
+            <div class="bs-new-group-top">
+                <div class="bs-timer bs-timer--modal" role="status" aria-label="Thời gian còn lại (theo max time)">
+                    <svg class="bs-ring" viewBox="0 0 120 120" aria-hidden="true">
+                        <circle class="bs-ring-track" cx="60" cy="60" r="52" fill="none"></circle>
+                        <circle class="bs-ring-progress" id="bs-new-group-ring-progress" cx="60" cy="60" r="52" fill="none"></circle>
+                    </svg>
+                    <div class="bs-timer-label">
+                        <span class="bs-timer-caption">Time Left</span>
+                        <span class="bs-timer-value" id="bs-new-group-timer-value">1:00:00</span>
+                    </div>
+                </div>
+                <div class="bs-new-group-fields">
+                    <div class="bs-field-row bs-name-row">
+                        <span class="bs-field-label">Name</span>
+                        <input type="text" id="bs-new-group-name" class="bs-input bs-name-input" maxlength="80" autocomplete="off" placeholder="Group name">
+                    </div>
+                    <div class="bs-max-block">
+                        <p class="bs-max-label">Max Time Allowed per Day</p>
+                        <div class="bs-time-inputs">
+                            <input type="number" id="bs-new-group-hr" class="bs-input bs-num" data-field="hr" min="0" max="23" step="1" value="1" aria-label="Giờ">
+                            <span class="bs-time-suffix">hr</span>
+                            <input type="number" id="bs-new-group-min" class="bs-input bs-num" data-field="min" min="0" max="59" step="1" value="0" aria-label="Phút">
+                            <span class="bs-time-suffix">min</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bs-new-group-websites">
+                <p class="bs-new-group-section-title">Add blocked websites</p>
+                <label class="bs-visually-hidden" for="bs-new-group-sites">Danh sách trang chặn</label>
+                <textarea id="bs-new-group-sites" class="bs-textarea" rows="7" placeholder="Enter blocked websites...." spellcheck="false"></textarea>
+                <ul class="bs-tip-list">
+                    <li>To block multiple sites, <strong>add one per line</strong>.</li>
+                    <li><a href="#" class="bs-tip-link" data-placeholder-link>To block opening a new tab — click here</a></li>
+                    <li><a href="#" class="bs-tip-link" data-placeholder-link>Block the Chrome Extensions page</a> <span class="bs-tip-muted">(ví dụ liên kết)</span></li>
+                    <li><a href="#" class="bs-tip-link" data-placeholder-link>Block extension settings page</a> <span class="bs-tip-muted">(ví dụ liên kết)</span></li>
+                </ul>
+            </div>
+
+            <div class="bs-new-group-footer">
+                <button type="button" id="bs-new-group-cancel" class="bs-btn bs-btn-modal-cancel">Cancel</button>
+                <button type="button" id="bs-new-group-save" class="bs-btn bs-btn-modal-save" disabled>Save group</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="blocked-sites.js"></script>
+</body>
+</html>
